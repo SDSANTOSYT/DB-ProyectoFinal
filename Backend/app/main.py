@@ -1,14 +1,29 @@
 # app/main.py
 from fastapi import FastAPI
 from .db import init_db
-from .routers import persona, auth
 
-app = FastAPI(title="GlobalEnglish API")
+# importa routers
+from .routers import auth, persona, usuario, tutor, estudiante, aula, sede, programa, horario, periodo, componente, nota, asistencia, motivo, registro_cambio
+
+app = FastAPI(title="GlobalEnglish API - Modelo ER Real")
 
 @app.on_event("startup")
 def startup():
     init_db()
 
-app.include_router(persona.router)
+# registrar routers
 app.include_router(auth.router)
-
+app.include_router(persona.router)
+app.include_router(usuario.router)
+app.include_router(tutor.router)
+app.include_router(estudiante.router)
+app.include_router(aula.router)
+app.include_router(sede.router)
+app.include_router(programa.router)
+app.include_router(horario.router)
+app.include_router(periodo.router)
+app.include_router(componente.router)
+app.include_router(nota.router)
+app.include_router(asistencia.router)
+app.include_router(motivo.router)
+app.include_router(registro_cambio.router)
