@@ -15,6 +15,7 @@ import {
   Home,
   UserCog,
   School,
+  Database,
 } from 'lucide-react';
 
 interface NavItem {
@@ -35,7 +36,7 @@ const navItems: NavItem[] = [
     label: 'Configuración',
     path: '/admin/configuracion',
     icon: <Settings className="w-5 h-5" />,
-    roles: ['ADMINISTRADOR'],
+    roles: ['ADMINISTRADOR', 'ADMINISTRATIVO'],
   },
   {
     label: 'Gestión de Usuarios',
@@ -68,9 +69,9 @@ const navItems: NavItem[] = [
     roles: ['ADMINISTRADOR', 'ADMINISTRATIVO'],
   },
   {
-    label: 'Asistencia y Seguimiento',
+    label: 'Seguimiento y Reportes',
     path: '/asistencia-seguimiento',
-    icon: <ClipboardCheck className="w-5 h-5" />,
+    icon: <Database className="w-5 h-5" />,
     roles: ['ADMINISTRADOR', 'ADMINISTRATIVO'],
   },
   {
@@ -83,25 +84,25 @@ const navItems: NavItem[] = [
     label: 'Tomar Asistencia',
     path: '/tutor/asistencia',
     icon: <ClipboardCheck className="w-5 h-5" />,
-    roles: ['TUTOR'],
+    roles: ['ADMINISTRADOR', 'ADMINISTRATIVO', 'TUTOR'],
   },
   {
     label: 'Ingresar Notas',
     path: '/tutor/notas',
     icon: <FileText className="w-5 h-5" />,
-    roles: ['TUTOR'],
+    roles: ['ADMINISTRADOR', 'ADMINISTRATIVO', 'TUTOR'],
   },
   {
     label: 'Mi Horario',
     path: '/tutor/horario',
     icon: <Calendar className="w-5 h-5" />,
-    roles: ['TUTOR'],
+    roles: ['ADMINISTRADOR', 'ADMINISTRATIVO', 'TUTOR'],
   },
   {
     label: 'Mis Reportes',
     path: '/tutor/reportes',
     icon: <FileText className="w-5 h-5" />,
-    roles: ['TUTOR'],
+    roles: ['ADMINISTRADOR', 'ADMINISTRATIVO', 'TUTOR'],
   },
 ];
 
