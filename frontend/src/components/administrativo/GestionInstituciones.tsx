@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -29,6 +30,7 @@ import { instituciones, getSedesByInstitucion, getAulasBySede } from '../../lib/
 import { toast } from 'sonner@2.0.3';
 
 export default function GestionInstituciones() {
+  const navigate = useNavigate();
   const [expandedInst, setExpandedInst] = useState<string | null>(null);
   const [openDialog, setOpenDialog] = useState(false);
   const [openSedeDialog, setOpenSedeDialog] = useState(false);
@@ -44,6 +46,16 @@ export default function GestionInstituciones() {
     e.preventDefault();
     toast.success('Sede creada exitosamente');
     setOpenSedeDialog(false);
+  };
+
+  const handleGestionarAulas = (sedeId: string, institucionId: string) => {
+    // Navega a la página de aulas con filtros aplicados
+    navigate('/aulas', { 
+      state: { 
+        filterSede: sedeId,
+        filterInstitucion: institucionId 
+      } 
+    });
   };
 
   return (
@@ -193,7 +205,11 @@ export default function GestionInstituciones() {
                                 Tel: {sede.telefono}
                               </p>
                             </div>
-                            <Button variant="outline" size="sm">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleGestionarAulas(sede.id, inst.id)}
+                            >
                               Gestionar Aulas
                             </Button>
                           </div>
