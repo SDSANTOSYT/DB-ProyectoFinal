@@ -30,13 +30,58 @@ export default function TomarAsistencia() {
 
   const [selectedAula, setSelectedAula] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [selectedTimes, setSelectedTimes] = useState<string[]>([]);
   const [attendance, setAttendance] = useState<Record<string, boolean>>({});
   const [classHeld, setClassHeld] = useState(true);
   const [motivo, setMotivo] = useState('');
   const [requiereReposicion, setRequiereReposicion] = useState(false);
+  const [isReposition, setIsReposition] = useState(false)
 
   const estudiantes = selectedAula ? getEstudiantesByAula(selectedAula) : [];
   const selectedAulaData = misAulas.find((a) => a.id === selectedAula);
+
+  function generateScheduleOptions(
+    startTime: string,
+    endTime: string,
+    intervalMin: number
+  ): string[] {
+
+    const toMinutes = (time: string): number => {
+      const [h, m] = time.split(":").map(Number);
+      return h * 60 + m;
+    };
+
+    const toHours = (totalMinutes: number): string => {
+      const h = Math.floor(totalMinutes / 60);
+      const m = totalMinutes % 60;
+      return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+    };
+
+    let start = toMinutes(startTime);
+    const end = toMinutes(endTime);
+
+    const ranges: string[] = [];
+
+    while (start + intervalMin <= end) {
+      const startTimeStr = toHours(start);
+      const endTimeStr = toHours(start + intervalMin);
+
+      ranges.push(`${startTimeStr} - ${endTimeStr}`);
+      start += intervalMin;
+    }
+
+    return ranges;
+  }
+
+  const timeOfClasses = generateScheduleOptions("6:00", "18:00", 30)
+
+
+  const handleChangeTimes = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedValues = Array.from(e.target.selectedOptions).map(
+      (opt) => opt.value
+    );
+    setSelectedTimes(selectedValues)
+  }
 
   const handleToggleAttendance = (estudianteId: string) => {
     setAttendance((prev) => ({
@@ -61,7 +106,6 @@ export default function TomarAsistencia() {
     setAttendance({});
     setClassHeld(true);
     setMotivo('');
-    setRequiereReposicion(false);
   };
 
   const handleMarkAllPresent = () => {
@@ -114,16 +158,50 @@ export default function TomarAsistencia() {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label>Fecha</Label>
-                <div className="border rounded-lg p-2">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={setSelectedDate}
-                    className="rounded-md"
-                  />
+              <div className="space-y-2 flex gap-3">
+                <div className='space-y-3'>
+                  <Label>Fecha</Label>
+                  <div className="border rounded-lg">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={setSelectedDate}
+                      className="rounded-md"
+                    />
+                  </div>
                 </div>
+                <div className='flex flex-col space-y-3 flex-1 h-full'>
+                  <Label>Hora</Label>
+                  <select className="flex-1 
+                    w-full border 
+                    rounded-lg p-2 
+                    focus:outline-none 
+                    focus:ring-2 
+                    focus:ring-indigo-500"
+                    value={selectedTimes}
+                    onChange={handleChangeTimes}
+                    multiple={true}>
+                    {timeOfClasses.map((time, index) => (
+                      <option className='text-center' key={time} value={time}>
+                        {time}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className='space-x-2 justify-center'>
+                <Checkbox
+                  id="is-reposition"
+                  checked={isReposition}
+                  onCheckedChange={(checked) => setIsReposition(checked as boolean)}
+                  disabled={!classHeld}
+                />
+                <label
+                  htmlFor="is-reposition"
+                  className="text-sm cursor-pointer"
+                >
+                  La clase es de reposicion
+                </label>
               </div>
 
               {selectedAulaData && (
@@ -141,7 +219,7 @@ export default function TomarAsistencia() {
 
         {/* Attendance Panel */}
         <div className="lg:col-span-2">
-          {!selectedAula || !selectedDate ? (
+          {!selectedAula || !selectedDate || selectedTimes.length < 1 ? (
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
                 <CalendarIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
@@ -149,10 +227,10 @@ export default function TomarAsistencia() {
               </CardContent>
             </Card>
           ) : (
-            <Tabs defaultValue="estudiantes" className="space-y-4">
+            <Tabs defaultValue="tutor" className="space-y-4">
               <TabsList>
-                <TabsTrigger value="estudiantes">Asistencia de Estudiantes</TabsTrigger>
                 <TabsTrigger value="tutor">Registro de Clase</TabsTrigger>
+                <TabsTrigger value="estudiantes">Asistencia de Estudiantes</TabsTrigger>
               </TabsList>
 
               <TabsContent value="estudiantes" className="space-y-4">
@@ -175,11 +253,10 @@ export default function TomarAsistencia() {
                       return (
                         <div
                           key={estudiante.id}
-                          className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-colors ${
-                            isPresent
-                              ? 'bg-green-50 border-green-200'
-                              : 'hover:bg-gray-50'
-                          }`}
+                          className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-colors ${isPresent
+                            ? 'bg-green-50 border-green-200'
+                            : 'hover:bg-gray-50'
+                            }`}
                           onClick={() => handleToggleAttendance(estudiante.id)}
                         >
                           <div className="flex items-center gap-3">
@@ -243,8 +320,8 @@ export default function TomarAsistencia() {
                     <div className="flex items-center space-x-2">
                       <Checkbox
                         id="class-held"
-                        checked={classHeld}
-                        onCheckedChange={(checked) => setClassHeld(checked as boolean)}
+                        checked={isReposition ? true : classHeld}
+                        onCheckedChange={(checked) => isReposition ? () => { } : setClassHeld(checked as boolean)}
                       />
                       <label
                         htmlFor="class-held"
@@ -254,6 +331,27 @@ export default function TomarAsistencia() {
                       </label>
                     </div>
 
+                    {isReposition && classHeld && (
+                      <>
+                        <div className="space-y-2">
+                          <Label htmlFor="motivo">Clase a reponer</Label>
+                          <Select value={motivo} onValueChange={setMotivo}>
+                            <SelectTrigger id="motivo">
+                              <SelectValue placeholder="Seleccionar clase a reponer" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Enfermedad">Enfermedad</SelectItem>
+                              <SelectItem value="Calamidad">Calamidad</SelectItem>
+                              <SelectItem value="Permiso Personal">
+                                Permiso Personal
+                              </SelectItem>
+                              <SelectItem value="Festivo">Festivo</SelectItem>
+                              <SelectItem value="Otro">Otro</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </>
+                    )}
                     {!classHeld && (
                       <>
                         <div className="space-y-2">
@@ -272,22 +370,6 @@ export default function TomarAsistencia() {
                               <SelectItem value="Otro">Otro</SelectItem>
                             </SelectContent>
                           </Select>
-                        </div>
-
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="reposicion"
-                            checked={requiereReposicion}
-                            onCheckedChange={(checked) =>
-                              setRequiereReposicion(checked as boolean)
-                            }
-                          />
-                          <label
-                            htmlFor="reposicion"
-                            className="text-sm cursor-pointer"
-                          >
-                            Requiere reposición
-                          </label>
                         </div>
                       </>
                     )}
