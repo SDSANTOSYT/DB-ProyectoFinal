@@ -8,22 +8,10 @@ import {
   getInstitucionById,
 } from '../../lib/mockData';
 
-const diasSemana = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-const horas = [
-  '06:00',
-  '07:00',
-  '08:00',
-  '09:00',
-  '10:00',
-  '11:00',
-  '12:00',
-  '13:00',
-  '14:00',
-  '15:00',
-  '16:00',
-  '17:00',
-  '18:00',
-];
+import { useCalendarApp, ScheduleXCalendar } from '@schedule-x/react'
+import { createViewWeek } from '@schedule-x/calendar';
+import '@schedule-x/theme-default/dist/index.css'
+import 'temporal-polyfill';
 
 export default function MiHorario() {
   const { user } = useAuth();
@@ -66,6 +54,19 @@ export default function MiHorario() {
   const totalClases = misAulas.reduce((acc, aula) => {
     return acc + aula.horarios.length;
   }, 0);
+
+
+  const calendar = useCalendarApp({
+    views: [createViewWeek()],
+    events: [],
+    weekOptions: {
+      gridHeight: 1200,
+    },
+    dayBoundaries: {
+      start: "05:00",
+      end: "21:00"
+    }
+  })
 
   return (
     <div className="space-y-6">
@@ -110,60 +111,8 @@ export default function MiHorario() {
           <CardTitle>Calendario Semanal</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <div className="min-w-[800px]">
-              {/* Header */}
-              <div className="grid grid-cols-7 gap-2 mb-2">
-                <div className="p-2"></div>
-                {diasSemana.map((dia) => (
-                  <div
-                    key={dia}
-                    className="p-2 text-center bg-gray-100 rounded"
-                  >
-                    <p className="text-sm">{dia}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Time slots */}
-              {horas.map((hora) => (
-                <div key={hora} className="grid grid-cols-7 gap-2 mb-2">
-                  <div className="p-2 text-sm text-muted-foreground flex items-center">
-                    {hora}
-                  </div>
-                  {diasSemana.map((dia) => {
-                    const key = `${dia}-${hora}`;
-                    const clases = scheduleMap[key] || [];
-
-                    return (
-                      <div key={dia} className="p-1">
-                        {clases.map((clase, idx) => (
-                          <div
-                            key={idx}
-                            className={`p-2 rounded text-xs ${
-                              clase.programa === 'INSIDECLASSROOM'
-                                ? 'bg-blue-100 border border-blue-200'
-                                : 'bg-purple-100 border border-purple-200'
-                            }`}
-                          >
-                            <p>{clase.aula}</p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {clase.horario}
-                            </p>
-                            <Badge
-                              variant="outline"
-                              className="mt-1 text-xs h-5"
-                            >
-                              Grado {clase.grado}°
-                            </Badge>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
+          <div className="scale-90 origin-top-left">
+            <ScheduleXCalendar calendarApp={calendar} />
           </div>
         </CardContent>
       </Card>

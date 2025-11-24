@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -35,6 +36,7 @@ import {
   Calendar,
   UserCog,
   Clock,
+  X,
 } from 'lucide-react';
 import {
   aulas,
@@ -49,14 +51,54 @@ import {
 import { toast } from 'sonner@2.0.3';
 
 export default function GestionAulas() {
+  const location = useLocation();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterInstitucion, setFilterInstitucion] = useState<string>('all');
+  const [filterSede, setFilterSede] = useState<string>('all');
   const [filterPrograma, setFilterPrograma] = useState<string>('all');
   const [filterGrado, setFilterGrado] = useState<string>('all');
   const [openDialog, setOpenDialog] = useState(false);
   const [openTutorDialog, setOpenTutorDialog] = useState(false);
   const [openHorarioDialog, setOpenHorarioDialog] = useState(false);
   const [selectedAula, setSelectedAula] = useState<string | null>(null);
+  const [activeFilters, setActiveFilters] = useState<string[]>([]);
+
+  // Aplicar filtros desde la navegación
+  useEffect(() => {
+    if (location.state) {
+      const { filterSede: sedeId, filterInstitucion: institucionId } = location.state as any;
+      
+      if (institucionId) {
+        setFilterInstitucion(institucionId);
+        setActiveFilters(prev => [...prev, 'institucion']);
+      }
+      
+      if (sedeId) {
+        setFilterSede(sedeId);
+        setActiveFilters(prev => [...prev, 'sede']);
+      }
+
+      // Mostrar notificación
+      const sede = sedes.find(s => s.id === sedeId);
+      if (sede) {
+        toast.info(`Filtrando aulas de: ${sede.nombre}`);
+      }
+    }
+  }, [location.state]);
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setFilterInstitucion('all');
+    setFilterSede('all');
+    setFilterPrograma('all');
+    setFilterGrado('all');
+    setActiveFilters([]);
+    toast.success('Filtros limpiados');
+  };
+
+  const sedesFiltradas = filterInstitucion === 'all' 
+    ? sedes 
+    : sedes.filter(sede => sede.institucionId === filterInstitucion);
 
   const filteredAulas = aulas.filter((aula) => {
     const sede = getSedeById(aula.sedeId);
@@ -70,12 +112,15 @@ export default function GestionAulas() {
     const matchesInstitucion =
       filterInstitucion === 'all' || institucion?.id === filterInstitucion;
 
+    const matchesSede =
+      filterSede === 'all' || aula.sedeId === filterSede;
+
     const matchesPrograma =
       filterPrograma === 'all' || aula.programa === filterPrograma;
 
     const matchesGrado = filterGrado === 'all' || aula.grado === filterGrado;
 
-    return matchesSearch && matchesInstitucion && matchesPrograma && matchesGrado;
+    return matchesSearch && matchesInstitucion && matchesSede && matchesPrograma && matchesGrado;
   });
 
   const handleCreateAula = (e: React.FormEvent) => {
@@ -95,6 +140,12 @@ export default function GestionAulas() {
     toast.success('Horario actualizado exitosamente');
     setOpenHorarioDialog(false);
   };
+
+  const hasActiveFilters = filterInstitucion !== 'all' || 
+                          filterSede !== 'all' || 
+                          filterPrograma !== 'all' || 
+                          filterGrado !== 'all' || 
+                          searchTerm !== '';
 
   return (
     <div className="space-y-6">
@@ -223,53 +274,88 @@ export default function GestionAulas() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid gap-4 md:grid-cols-5">
-            <div className="md:col-span-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por aula o tutor..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
-                />
+          <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-6">
+              <div className="md:col-span-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por aula o tutor..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
               </div>
+              <Select value={filterInstitucion} onValueChange={setFilterInstitucion}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Institución" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las instituciones</SelectItem>
+                  {instituciones.map((inst) => (
+                    <SelectItem key={inst.id} value={inst.id}>
+                      {inst.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select 
+                value={filterSede} 
+                onValueChange={setFilterSede}
+                disabled={filterInstitucion === 'all'}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sede" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las sedes</SelectItem>
+                  {sedesFiltradas.map((sede) => (
+                    <SelectItem key={sede.id} value={sede.id}>
+                      {sede.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={filterPrograma} onValueChange={setFilterPrograma}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Programa" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los programas</SelectItem>
+                  <SelectItem value="INSIDECLASSROOM">INSIDECLASSROOM</SelectItem>
+                  <SelectItem value="OUTSIDECLASSROOM">OUTSIDECLASSROOM</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={filterGrado} onValueChange={setFilterGrado}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Grado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los grados</SelectItem>
+                  <SelectItem value="4">4°</SelectItem>
+                  <SelectItem value="5">5°</SelectItem>
+                  <SelectItem value="9">9°</SelectItem>
+                  <SelectItem value="10">10°</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <Select value={filterInstitucion} onValueChange={setFilterInstitucion}>
-              <SelectTrigger>
-                <SelectValue placeholder="Institución" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas las instituciones</SelectItem>
-                {instituciones.map((inst) => (
-                  <SelectItem key={inst.id} value={inst.id}>
-                    {inst.nombre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={filterPrograma} onValueChange={setFilterPrograma}>
-              <SelectTrigger>
-                <SelectValue placeholder="Programa" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los programas</SelectItem>
-                <SelectItem value="INSIDECLASSROOM">INSIDECLASSROOM</SelectItem>
-                <SelectItem value="OUTSIDECLASSROOM">OUTSIDECLASSROOM</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={filterGrado} onValueChange={setFilterGrado}>
-              <SelectTrigger>
-                <SelectValue placeholder="Grado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los grados</SelectItem>
-                <SelectItem value="4">4°</SelectItem>
-                <SelectItem value="5">5°</SelectItem>
-                <SelectItem value="9">9°</SelectItem>
-                <SelectItem value="10">10°</SelectItem>
-              </SelectContent>
-            </Select>
+            
+            {hasActiveFilters && (
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Filtros activos aplicados
+                </p>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={clearFilters}
+                >
+                  <X className="w-4 h-4 mr-1" />
+                  Limpiar filtros
+                </Button>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

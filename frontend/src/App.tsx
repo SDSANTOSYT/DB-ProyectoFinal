@@ -61,12 +61,12 @@ function AppRoutes() {
             )
           }
         />
-        
+
         {/* Admin Routes */}
         <Route
           path="/admin/configuracion"
           element={
-            <ProtectedRoute allowedRoles={['ADMINISTRADOR']}>
+            <ProtectedRoute allowedRoles={['ADMINISTRADOR', 'ADMINISTRATIVO']}>
               <ConfiguracionSistema />
             </ProtectedRoute>
           }
@@ -134,7 +134,7 @@ function AppRoutes() {
         <Route
           path="/tutor/asistencia"
           element={
-            <ProtectedRoute allowedRoles={['TUTOR']}>
+            <ProtectedRoute allowedRoles={['ADMINISTRADOR', 'ADMINISTRATIVO', 'TUTOR']}>
               <TomarAsistencia />
             </ProtectedRoute>
           }
@@ -142,7 +142,7 @@ function AppRoutes() {
         <Route
           path="/tutor/notas"
           element={
-            <ProtectedRoute allowedRoles={['TUTOR']}>
+            <ProtectedRoute allowedRoles={['ADMINISTRADOR', 'ADMINISTRATIVO', 'TUTOR']}>
               <IngresarNotas />
             </ProtectedRoute>
           }
@@ -150,7 +150,7 @@ function AppRoutes() {
         <Route
           path="/tutor/horario"
           element={
-            <ProtectedRoute allowedRoles={['TUTOR']}>
+            <ProtectedRoute allowedRoles={['ADMINISTRADOR', 'ADMINISTRATIVO', 'TUTOR']}>
               <MiHorario />
             </ProtectedRoute>
           }
@@ -158,7 +158,7 @@ function AppRoutes() {
         <Route
           path="/tutor/reportes"
           element={
-            <ProtectedRoute allowedRoles={['TUTOR']}>
+            <ProtectedRoute allowedRoles={['ADMINISTRADOR', 'ADMINISTRATIVO', 'TUTOR']}>
               <MisReportes />
             </ProtectedRoute>
           }
