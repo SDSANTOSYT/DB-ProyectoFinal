@@ -1,6 +1,6 @@
 # app/routers/tutor.py
-from fastapi import APIRouter, HTTPException, Depends
-from typing import Optional
+from fastapi import APIRouter, HTTPException, Depends, Query
+from typing import List, Optional
 import oracledb
 import logging
 from ..db import get_conn

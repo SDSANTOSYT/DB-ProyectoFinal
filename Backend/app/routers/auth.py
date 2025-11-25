@@ -22,7 +22,7 @@ def login(payload: LoginRequest):
         conn = get_conn()
         cur = conn.cursor()
         
-        logger.info(f"Intento de login para usuario: {payload.username}")
+        logger.info(f"Intento de login para usuario: {payload.email}")
         
         # Buscar el usuario
         cur.execute("""
