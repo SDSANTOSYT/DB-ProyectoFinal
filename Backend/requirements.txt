@@ -4,3 +4,4 @@ oracledb
 pydantic
 python-dotenv
 PyJWT
+bcrypt
