@@ -4,9 +4,9 @@ INSERT INTO SEDE (NOMBRE_SEDE, DIRECCION, ID_INSTITUCION) VALUES ('Sede Central'
 INSERT INTO PROGRAMA (TIPO) VALUES ('PRESENCIAL');
 
 -- Personas
-INSERT INTO PERSONA (NOMBRE, ROL, CORREO) VALUES ('Juan Perez', 'Tutor', 'juan.perez@educacion.com');
-INSERT INTO PERSONA (NOMBRE, ROL, CORREO) VALUES ('María Gómez', 'Estudiante', 'maria.gomez@estudiantes.com');
-INSERT INTO PERSONA (NOMBRE, ROL, CORREO) VALUES ('Admin Demo', 'Administrador', 'admin@sistema.com');
+INSERT INTO PERSONA (NOMBRE, ROL, CORREO) VALUES ('Juan Perez', 'TUTOR', 'juan.perez@educacion.com');
+INSERT INTO PERSONA (NOMBRE, ROL, CORREO) VALUES ('María Gómez', 'ESTUDIANTE', 'maria.gomez@estudiantes.com');
+INSERT INTO PERSONA (NOMBRE, ROL, CORREO) VALUES ('Admin Demo', 'ADMINISTRADOR', 'admin@sistema.com');
 
 -- Usuarios (CONTRASENA en claro para pruebas)
 INSERT INTO USUARIO (CONTRASENA, ID_PERSONA) VALUES ('1', 1); -- contraseña = '1' (puedes usar id_persona)
