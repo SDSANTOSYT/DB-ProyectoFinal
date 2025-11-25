@@ -1,11 +1,21 @@
 # app/main.py
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from .db import init_db
 
 # importa routers
 from .routers import auth, persona, usuario, tutor, estudiante, aula, sede, programa, horario, periodo, componente, nota, asistencia, motivo, registro_cambio
 
 app = FastAPI(title="GlobalEnglish API - Modelo ER Real")
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # O ["*"] para permitir todos (solo en desarrollo)
+    allow_credentials=True,
+    allow_methods=["*"],   # GET, POST, PUT, DELETE, etc
+    allow_headers=["*"],   # Permitir todos los headers
+)
 
 @app.on_event("startup")
 def startup():

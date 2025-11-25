@@ -46,11 +46,13 @@ class AulaResponse(AulaCreate):
 class PersonaCreate(BaseModel):
     nombre: str
     rol: Optional[str] = None
+    correo: Optional[str] = None
 
 class PersonaRead(BaseModel):
     id_persona: int
     nombre: str
     rol: Optional[str] = None
+    correo: Optional[str] = None 
 
 class UsuarioCreate(BaseModel):
     contrasena: str
@@ -196,4 +198,6 @@ class LoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     nombre: str
+    correo: Optional[str] = None  
+    rol: Optional[str] = None     
     id_persona: int
