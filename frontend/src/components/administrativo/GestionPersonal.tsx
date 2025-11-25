@@ -53,9 +53,9 @@ export default function GestionPersonal() {
 
     const data = {
       nombre: formData.get("nombre"),
-      //documento: formData.get("documento"),
+      id_persona: formData.get("documento"),
+      rol: selectedRole,
       correo: formData.get("email"),
-      rol: selectedRole
     }
 
     console.log(data)
