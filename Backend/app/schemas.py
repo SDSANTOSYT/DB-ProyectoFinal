@@ -20,11 +20,13 @@ class ProgramaCreate(BaseModel):
 class AulaCreate(BaseModel):
     # campos del ER
     grado: Optional[str] = None
-    id_sede: Optional[int] = None
+    nombre_aula: str
+    id_sede: int
     id_tutor: Optional[int] = None
     id_programa: Optional[int] = None
 
 class AulaUpdate(BaseModel):
+    nombre_aula: Optional[str] = None
     grado: Optional[str] = None
     id_sede: Optional[int] = None
     id_tutor: Optional[int] = None
@@ -32,6 +34,7 @@ class AulaUpdate(BaseModel):
 
 class AulaResponse(AulaCreate):
     id_aula: int
+    
 
 # -----------------
 # Persona / Usuario / Tutor / Estudiante
