@@ -30,10 +30,14 @@ import { Badge } from '../ui/badge';
 import { Plus, Search, Mail, Phone, School } from 'lucide-react';
 import { tutores, getAulasByTutor, getSedeById, getInstitucionById } from '../../lib/mockData';
 import { toast } from 'sonner@2.0.3';
+import type { Rol } from '../../lib/types';
 
 export default function GestionPersonal() {
   const [searchTerm, setSearchTerm] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
+
+
+  const [selectedRole, setSelectedRole] = useState<Rol | string>('')
 
   const filteredTutores = tutores.filter((tutor) =>
     tutor.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -41,8 +45,33 @@ export default function GestionPersonal() {
     tutor.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleCreateTutor = (e: React.FormEvent) => {
+  const handleCreateTutor = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const form = e.currentTarget
+    const formData = new FormData(form)
+
+    const data = {
+      nombre: formData.get("nombre"),
+      //documento: formData.get("documento"),
+      correo: formData.get("email"),
+      rol: selectedRole
+    }
+
+    console.log(data)
+
+    const url = `http://127.0.0.1:8000/personas/`
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      throw new Error('Error Creando persona');
+    }
+
     toast.success('Tutor contratado exitosamente');
     setOpenDialog(false);
   };
@@ -60,60 +89,63 @@ export default function GestionPersonal() {
           <DialogTrigger asChild>
             <Button>
               <Plus className="w-4 h-4 mr-2" />
-              Contratar Tutor
+              Contratar Persona
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Contratar Nuevo Tutor</DialogTitle>
               <DialogDescription>
-                Ingresa los datos del tutor y crea su cuenta de usuario
+                Ingresa los datos de la persona
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleCreateTutor} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="tutor-nombre">Nombre Completo</Label>
+                <Label htmlFor="persona-nombre">Nombre Completo</Label>
                 <Input
-                  id="tutor-nombre"
+                  id="persona-nombre"
+                  name='nombre'
                   placeholder="Ej: Carlos Rodríguez"
                   required
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="tutor-documento">Documento</Label>
-                  <Input
-                    id="tutor-documento"
-                    placeholder="1122334455"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="tutor-telefono">Teléfono</Label>
-                  <Input
-                    id="tutor-telefono"
-                    placeholder="3201111111"
-                    required
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="persona-documento">Documento</Label>
+                <Input
+                  id="persona-documento"
+                  name='documento'
+                  placeholder="1122334455"
+                  required
+                />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="tutor-email">Correo Electrónico</Label>
+                <Label htmlFor="persona-email">Correo Electrónico</Label>
                 <Input
-                  id="tutor-email"
+                  id="persona-email"
                   type="email"
+                  name='email'
                   placeholder="tutor@globalenglish.com"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="tutor-password">Contraseña Inicial</Label>
-                <Input
-                  id="tutor-password"
-                  type="password"
-                  placeholder="••••••••"
-                  required
-                />
+                <Label htmlFor="persona-role">Rol</Label>
+                <Select value={selectedRole} onValueChange={setSelectedRole}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar Rol" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem key='TUTOR' value='TUTOR'>
+                      Tutor
+                    </SelectItem>
+                    <SelectItem key='ADMINISTRATIVO' value='ADMINISTRATIVO'>
+                      Administrativo
+                    </SelectItem>
+                    <SelectItem key='ADMINISTRADOR' value='ADMINISTRADOR'>
+                      Administrador
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex justify-end gap-2">
                 <Button

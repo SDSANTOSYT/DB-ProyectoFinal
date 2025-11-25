@@ -23,10 +23,56 @@ import {
   getInstitucionById,
 } from '../../lib/mockData';
 import { toast } from 'sonner@2.0.3';
+import type { Aula } from '../../lib/types';
 
 export default function TomarAsistencia() {
   const { user } = useAuth();
-  const misAulas = getAulasByTutor(user?.id || '');
+  const { misAulas, setMisAulas } = useState<Aula[]>([]);
+
+  // Get tutor's classrooms
+  const tutorAulas = async (user: User | null): Promise<Aula[]> => {
+    let url = `http://127.0.0.1:8000/tutores/by-persona/${user.id_persona}`
+
+    let response = await fetch(url, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!response.ok) {
+      console.log(response.statusText)
+      return []
+    }
+
+
+    let data = await response.json()
+    if (!data.id_tutor) {
+      return []
+    }
+
+    url = `http://127.0.0.1:8000/tutores/${data.id_tutor}/aulas`
+
+    response = await fetch(url, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!response.ok) {
+      console.log(response.statusText)
+      return []
+    }
+
+    const aulasData = await response.json()
+    return aulasData
+  }
+
+  useEffect(() => {
+    const obtenerAulas = async () => {
+      const data = await tutorAulas(user)
+      setAulas(data)
+    }
+    obtenerAulas()
+  }, [])
+
 
   const [selectedAula, setSelectedAula] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -143,13 +189,13 @@ export default function TomarAsistencia() {
                     <SelectValue placeholder="Seleccionar aula" />
                   </SelectTrigger>
                   <SelectContent>
-                    {misAulas.map((aula) => {
+                    {misAulas.map((aula: Aula) => {
                       const sede = getSedeById(aula.sedeId);
                       const institucion = sede
                         ? getInstitucionById(sede.institucionId)
                         : null;
                       return (
-                        <SelectItem key={aula.id} value={aula.id}>
+                        <SelectItem key={aula.id_aula} value={aula.id_aula}>
                           {aula.nombre} - {institucion?.nombre}
                         </SelectItem>
                       );

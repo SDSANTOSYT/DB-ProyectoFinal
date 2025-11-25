@@ -23,19 +23,12 @@ class AulaCreate(BaseModel):
     id_sede: Optional[int] = None
     id_tutor: Optional[int] = None
     id_programa: Optional[int] = None
-    # campos alternativos (algunos routers usan estos)
-    codigo_aula: Optional[str] = None
-    capacidad: Optional[int] = None
-    ubicacion: Optional[str] = None
 
 class AulaUpdate(BaseModel):
     grado: Optional[str] = None
     id_sede: Optional[int] = None
     id_tutor: Optional[int] = None
     id_programa: Optional[int] = None
-    codigo_aula: Optional[str] = None
-    capacidad: Optional[int] = None
-    ubicacion: Optional[str] = None
 
 class AulaResponse(AulaCreate):
     id_aula: int
@@ -201,3 +194,35 @@ class LoginResponse(BaseModel):
     correo: Optional[str] = None  
     rol: Optional[str] = None     
     id_persona: int
+
+class TutorIdResponse(BaseModel):
+    id_tutor: Optional[int] = None
+
+class AulaSimple(BaseModel):
+    id_aula: int
+    grado: Optional[str] = None
+    id_sede: Optional[int] = None
+    id_programa: Optional[int] = None
+    id_tutor: Optional[int] = None
+
+class AulasCountResponse(BaseModel):
+    id_tutor: int
+    numero_aulas: int
+
+class AulaStudentCount(BaseModel):
+    id_aula: int
+    numero_estudiantes: int
+
+class StudentSimple(BaseModel):
+    id_estudiante: int
+    nombre: Optional[str] = None
+    tipo_documento: Optional[str] = None
+    grado: Optional[str] = None
+
+class HorarioSimple(BaseModel):
+    id_horario: int
+    dia: Optional[str] = None
+    hora_inicio: Optional[str] = None
+    hora_fin: Optional[str] = None
+    id_aula: Optional[int] = None
+    id_tutor: Optional[int] = None

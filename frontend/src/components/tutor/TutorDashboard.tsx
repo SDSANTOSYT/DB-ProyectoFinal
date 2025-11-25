@@ -1,28 +1,76 @@
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { School, ClipboardCheck, FileText, Calendar, Clock } from 'lucide-react';
-import { aulas, getSedeById, getInstitucionById, getEstudiantesByAula } from '../../lib/mockData';
+import { getSedeById, getInstitucionById, getEstudiantesByAula } from '../../lib/mockData';
 import { Link } from 'react-router-dom';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { useAuth } from '../../contexts/AuthContext';
+import { useEffect, useState } from 'react';
+import type { Aula, User } from '../../lib/types';
+
 
 export default function TutorDashboard() {
   const { user } = useAuth();
-  
+
+  const { aulas, setAulas } = useState<Aula[]>([]);
+
   // Get tutor's classrooms
-  const tutorAulas = aulas.filter((a) => a.tutorId === user?.id);
+  const tutorAulas = async (user: User | null): Promise<Aula[]> => {
+    let url = `http://127.0.0.1:8000/tutores/by-persona/${user.id_persona}`
+
+    let response = await fetch(url, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!response.ok) {
+      console.log(response.statusText)
+      return []
+    }
+
+
+    let data = await response.json()
+    if (!data.id_tutor) {
+      return []
+    }
+
+    url = `http://127.0.0.1:8000/tutores/${data.id_tutor}/aulas`
+
+    response = await fetch(url, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!response.ok) {
+      console.log(response.statusText)
+      return []
+    }
+
+    const aulasData = await response.json()
+    return aulasData
+  }
+
+  useEffect(() => {
+    const obtenerAulas = async () => {
+      const data = await tutorAulas(user)
+      setAulas(data)
+    }
+    obtenerAulas()
+  }, [])
 
   // Get today's classes
   const today = new Date().toLocaleDateString('es-ES', { weekday: 'long' });
   const todayCapitalized = today.charAt(0).toUpperCase() + today.slice(1);
-  
-  const todayClasses = tutorAulas.filter((aula) =>
-    aula.horarios.some((h) => h.diaSemana === todayCapitalized)
-  );
 
-  const totalStudents = tutorAulas.reduce((acc, aula) => {
+  const todayClasses = 0
+  /*const todayClasses = tutorAulas.filter((aula) =>
+    aula.horarios.some((h) => h.diaSemana === todayCapitalized)
+  );*/
+
+  const totalStudents = 0
+  /*const totalStudents = tutorAulas.reduce((acc, aula) => {
     return acc + getEstudiantesByAula(aula.id).length;
-  }, 0);
+  }, 0);*/
 
   return (
     <div className="space-y-6">
@@ -78,7 +126,7 @@ export default function TutorDashboard() {
       </div>
 
       {/* Today's Classes */}
-      {todayClasses.length > 0 && (
+      {todayClasses > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Clases de Hoy - {todayCapitalized}</CardTitle>
@@ -206,8 +254,8 @@ export default function TutorDashboard() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2">
-            {tutorAulas.map((aula) => {
-              const sede = getSedeById(aula.sedeId);
+            {/*aulas.map((aula : Aula) => {
+              const sede = aula.id_sede;
               const institucion = sede ? getInstitucionById(sede.institucionId) : null;
               const estudiantesCount = getEstudiantesByAula(aula.id).length;
 
@@ -254,7 +302,7 @@ export default function TutorDashboard() {
                   </div>
                 </div>
               );
-            })}
+            })*/}
           </div>
         </CardContent>
       </Card>
