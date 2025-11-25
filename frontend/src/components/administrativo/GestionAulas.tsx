@@ -61,6 +61,18 @@ export default function GestionAulas() {
   const [openTutorDialog, setOpenTutorDialog] = useState(false);
   const [openHorarioDialog, setOpenHorarioDialog] = useState(false);
   const [selectedAula, setSelectedAula] = useState<string | null>(null);
+  const [selectedGrado, setSelectedGrado] = useState<string | null>(null);
+  
+  // Estado para el formulario de nueva aula
+  const [newAulaGrado, setNewAulaGrado] = useState<string>('');
+  
+  // Estado para el formulario de horario
+  const [horarioFormData, setHorarioFormData] = useState({
+    dia_semana: '',
+    hora_inicio: '',
+    hora_fin: '',
+    duracion_minutos: '60'
+  });
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
 
   // Aplicar filtros desde la navegación
@@ -137,8 +149,50 @@ export default function GestionAulas() {
 
   const handleUpdateHorario = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validar duración total según el grado
+    if (!selectedGrado) {
+      toast.error('No se ha seleccionado un grado');
+      return;
+    }
+    
+    const grado = parseInt(selectedGrado);
+    const maxHoras = (grado === 4 || grado === 5) ? 2 : 3;
+    const duracionMinutos = parseInt(horarioFormData.duracion_minutos);
+    
+    // Calcular duración en horas
+    const horasAsignadas = duracionMinutos / 60;
+    
+    // Validar hora de inicio y fin
+    if (horarioFormData.hora_inicio >= horarioFormData.hora_fin) {
+      toast.error('La hora de fin debe ser posterior a la hora de inicio');
+      return;
+    }
+    
+    // Validar horario entre 06:00 y 18:00
+    const horaInicio = parseInt(horarioFormData.hora_inicio.split(':')[0]);
+    const horaFin = parseInt(horarioFormData.hora_fin.split(':')[0]);
+    
+    if (horaInicio < 6 || horaFin > 18) {
+      toast.error('El horario debe estar entre las 06:00 y las 18:00');
+      return;
+    }
+    
+    // TODO: Aquí deberías sumar las horas ya existentes del aula
+    // Por ahora solo validamos la nueva sesión
+    if (horasAsignadas > maxHoras) {
+      toast.error(`Las aulas de ${grado}° grado pueden tener máximo ${maxHoras} horas semanales`);
+      return;
+    }
+    
     toast.success('Horario actualizado exitosamente');
     setOpenHorarioDialog(false);
+    setHorarioFormData({
+      dia_semana: '',
+      hora_inicio: '',
+      hora_fin: '',
+      duracion_minutos: '60'
+    });
   };
 
   const hasActiveFilters = filterInstitucion !== 'all' || 
@@ -178,7 +232,11 @@ export default function GestionAulas() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="aula-grado">Grado</Label>
-                  <Select required>
+                  <Select 
+                    required
+                    value={newAulaGrado}
+                    onValueChange={setNewAulaGrado}
+                  >
                     <SelectTrigger id="aula-grado">
                       <SelectValue placeholder="Seleccionar grado" />
                     </SelectTrigger>
@@ -207,6 +265,15 @@ export default function GestionAulas() {
                       </SelectItem>
                     </SelectContent>
                   </Select>
+                  {newAulaGrado && (
+                    <p className="text-xs text-muted-foreground">
+                      {(newAulaGrado === '4' || newAulaGrado === '5') ? (
+                        <span>📚 Horario regular de institución (Lun-Vie, máx 2h)</span>
+                      ) : (
+                        <span>🌙 Horario extracurricular (Lun-Sáb, máx 3h)</span>
+                      )}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="aula-institucion">Institución</Label>
@@ -256,6 +323,39 @@ export default function GestionAulas() {
                   </Select>
                 </div>
               </div>
+              {newAulaGrado && (
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-blue-900 mb-2">
+                    📋 Restricciones de Horario - Grado {newAulaGrado}°
+                  </h4>
+                  <div className="space-y-2 text-sm text-blue-800">
+                    <div className="flex items-start gap-2">
+                      <span className="font-medium">•</span>
+                      <span>
+                        <strong>Programa:</strong> {(newAulaGrado === '4' || newAulaGrado === '5') ? 'INSIDECLASSROOM' : 'OUTSIDECLASSROOM'}
+                      </span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="font-medium">•</span>
+                      <span>
+                        <strong>Días permitidos:</strong> {(newAulaGrado === '4' || newAulaGrado === '5') ? 'Lunes a Viernes' : 'Lunes a Sábado'}
+                      </span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="font-medium">•</span>
+                      <span>
+                        <strong>Horas semanales:</strong> Máximo {(newAulaGrado === '4' || newAulaGrado === '5') ? '2 horas' : '3 horas'}
+                      </span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="font-medium">•</span>
+                      <span>
+                        <strong>Horario:</strong> {(newAulaGrado === '4' || newAulaGrado === '5') ? 'Dentro del horario escolar' : 'Jornada contraria'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="flex justify-end gap-2">
                 <Button
                   type="button"
@@ -439,6 +539,7 @@ export default function GestionAulas() {
                           size="sm"
                           onClick={() => {
                             setSelectedAula(aula.id);
+                            setSelectedGrado(aula.grado);
                             setOpenHorarioDialog(true);
                           }}
                         >
@@ -510,12 +611,21 @@ export default function GestionAulas() {
             <DialogTitle>Modificar Horario</DialogTitle>
             <DialogDescription>
               Ajusta los horarios de clase para esta aula
+              {selectedGrado && (
+                <span className="block mt-2 text-sm font-medium">
+                  Grado {selectedGrado}° - Máximo {(selectedGrado === '4' || selectedGrado === '5') ? '2' : '3'} horas semanales
+                </span>
+              )}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleUpdateHorario} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="dia-semana">Día de la Semana</Label>
-              <Select required>
+              <Select 
+                value={horarioFormData.dia_semana}
+                onValueChange={(value) => setHorarioFormData(prev => ({ ...prev, dia_semana: value }))}
+                required
+              >
                 <SelectTrigger id="dia-semana">
                   <SelectValue placeholder="Seleccionar día" />
                 </SelectTrigger>
@@ -525,25 +635,86 @@ export default function GestionAulas() {
                   <SelectItem value="Miércoles">Miércoles</SelectItem>
                   <SelectItem value="Jueves">Jueves</SelectItem>
                   <SelectItem value="Viernes">Viernes</SelectItem>
-                  <SelectItem value="Sábado">Sábado</SelectItem>
+                  {(selectedGrado === '9' || selectedGrado === '10') && (
+                    <SelectItem value="Sábado">Sábado</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
+              {(selectedGrado === '4' || selectedGrado === '5') && (
+                <p className="text-xs text-muted-foreground">
+                  Los grados 4° y 5° solo tienen clases de lunes a viernes
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="duracion-clase">Duración de la Clase</Label>
+              <Select 
+                value={horarioFormData.duracion_minutos}
+                onValueChange={(value) => setHorarioFormData(prev => ({ ...prev, duracion_minutos: value }))}
+                required
+              >
+                <SelectTrigger id="duracion-clase">
+                  <SelectValue placeholder="Seleccionar duración" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="40">40 minutos</SelectItem>
+                  <SelectItem value="45">45 minutos</SelectItem>
+                  <SelectItem value="50">50 minutos</SelectItem>
+                  <SelectItem value="55">55 minutos</SelectItem>
+                  <SelectItem value="60">60 minutos (1 hora)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Equivalente a 1 hora para los reportes
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="hora-inicio">Hora Inicio</Label>
-                <Input id="hora-inicio" type="time" required />
+                <Input 
+                  id="hora-inicio" 
+                  type="time" 
+                  value={horarioFormData.hora_inicio}
+                  onChange={(e) => setHorarioFormData(prev => ({ ...prev, hora_inicio: e.target.value }))}
+                  min="06:00"
+                  max="18:00"
+                  required 
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="hora-fin">Hora Fin</Label>
-                <Input id="hora-fin" type="time" required />
+                <Input 
+                  id="hora-fin" 
+                  type="time" 
+                  value={horarioFormData.hora_fin}
+                  onChange={(e) => setHorarioFormData(prev => ({ ...prev, hora_fin: e.target.value }))}
+                  min="06:00"
+                  max="18:00"
+                  required 
+                />
               </div>
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm text-blue-800">
+                <strong>Horario permitido:</strong> 06:00 - 18:00
+              </p>
+              <p className="text-sm text-blue-800 mt-1">
+                <strong>Límite semanal:</strong> {(selectedGrado === '4' || selectedGrado === '5') ? '2' : '3'} horas máximo
+              </p>
             </div>
             <div className="flex justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setOpenHorarioDialog(false)}
+                onClick={() => {
+                  setOpenHorarioDialog(false);
+                  setHorarioFormData({
+                    dia_semana: '',
+                    hora_inicio: '',
+                    hora_fin: '',
+                    duracion_minutos: '60'
+                  });
+                }}
               >
                 Cancelar
               </Button>

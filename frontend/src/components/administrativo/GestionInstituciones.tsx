@@ -1,4 +1,10 @@
-import { useState } from 'react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
@@ -35,11 +41,56 @@ export default function GestionInstituciones() {
   const [openDialog, setOpenDialog] = useState(false);
   const [openSedeDialog, setOpenSedeDialog] = useState(false);
   const [selectedInstitucion, setSelectedInstitucion] = useState<string | null>(null);
+  
+  // Estado para el formulario de nueva institución
+  const [formData, setFormData] = useState({
+    nombre: '',
+    nit: '',
+    direccion: '',
+    telefono: '',
+    ciudad: '',
+    duracion_clase: '60' // Duración en minutos (40, 45, 50, 55, 60)
+  });
 
   const handleAddInstitucion = (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success('Institución creada exitosamente');
+    
+    // Aquí se crearía la institución en el backend
+    // const nuevaInstitucion = {
+    //   nombre: formData.nombre,
+    //   nit: formData.nit,
+    //   ciudad: formData.ciudad
+    // };
+    
+    // Automáticamente crear la Sede Principal con los mismos datos
+    // const sedePrincipal = {
+    //   nombre: "Sede Principal",
+    //   institucionId: nuevaInstitucion.id,
+    //   direccion: formData.direccion,
+    //   telefono: formData.telefono,
+    //   esPrincipal: true
+    // };
+    
+    // Limpiar formulario
+    setFormData({
+      nombre: '',
+      nit: '',
+      direccion: '',
+      telefono: '',
+      ciudad: '',
+      duracion_clase: '60'
+    });
+    
+    toast.success('Institución y Sede Principal creadas exitosamente');
     setOpenDialog(false);
+  };
+  
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [id]: value
+    }));
   };
 
   const handleAddSede = (e: React.FormEvent) => {
@@ -84,25 +135,90 @@ export default function GestionInstituciones() {
             <form onSubmit={handleAddInstitucion} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="nombre">Nombre de la Institución</Label>
-                <Input id="nombre" placeholder="Ej: Colegio San José" required />
+                <Input 
+                  id="nombre" 
+                  placeholder="Ej: Colegio San José" 
+                  value={formData.nombre}
+                  onChange={handleInputChange}
+                  required 
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="nit">NIT</Label>
-                <Input id="nit" placeholder="900123456-1" required />
+                <Input 
+                  id="nit" 
+                  placeholder="900123456-1" 
+                  value={formData.nit}
+                  onChange={handleInputChange}
+                  required 
+                />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="direccion">Dirección</Label>
-                <Input id="direccion" placeholder="Calle 45 #23-67" required />
+                <Label htmlFor="direccion">Dirección (Sede Principal)</Label>
+                <Input 
+                  id="direccion" 
+                  placeholder="Calle 45 #23-67" 
+                  value={formData.direccion}
+                  onChange={handleInputChange}
+                  required 
+                />
+                <p className="text-xs text-muted-foreground">
+                  Esta dirección se usará para la sede principal
+                </p>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="telefono">Teléfono</Label>
-                  <Input id="telefono" placeholder="3201234567" required />
+                  <Label htmlFor="telefono">Teléfono (Sede Principal)</Label>
+                  <Input 
+                    id="telefono" 
+                    placeholder="3201234567" 
+                    value={formData.telefono}
+                    onChange={handleInputChange}
+                    required 
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="ciudad">Ciudad</Label>
-                  <Input id="ciudad" placeholder="Bogotá" required />
+                  <Input 
+                    id="ciudad" 
+                    placeholder="Bogotá" 
+                    value={formData.ciudad}
+                    onChange={handleInputChange}
+                    required 
+                  />
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="duracion_clase">Duración de Clases (minutos)</Label>
+                <Select 
+                  value={formData.duracion_clase}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, duracion_clase: value }))}
+                  required
+                >
+                  <SelectTrigger id="duracion_clase">
+                    <SelectValue placeholder="Seleccionar duración" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="40">40 minutos</SelectItem>
+                    <SelectItem value="45">45 minutos</SelectItem>
+                    <SelectItem value="50">50 minutos</SelectItem>
+                    <SelectItem value="55">55 minutos</SelectItem>
+                    <SelectItem value="60">60 minutos (1 hora)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Esta duración se aplicará a todas las clases de la institución
+                </p>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-800 mb-2">
+                  <strong>📝 Nota importante:</strong>
+                </p>
+                <ul className="text-sm text-blue-800 space-y-1 ml-4">
+                  <li>• Se creará automáticamente una "Sede Principal" con la dirección y teléfono indicados</li>
+                  <li>• La duración de clase seleccionada aplicará para todas las aulas de esta institución</li>
+                  <li>• Esta duración se considera equivalente a 1 hora para los reportes</li>
+                </ul>
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setOpenDialog(false)}>
