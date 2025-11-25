@@ -33,6 +33,46 @@ def asignar_tutor(payload: AsignacionTutorCreate, user=Depends(get_current_user)
     finally:
         cur.close(); conn.close()
 
+@router.get("/persona/{id_persona}/aulas")
+def get_aulas_by_persona(id_persona: int, user=Depends(get_current_user)):
+   
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        cur.execute("SELECT id_tutor FROM tutor WHERE id_persona = :1", (id_persona,))
+        tutor_row = cur.fetchone()
+        if not tutor_row:
+            raise HTTPException(404, "No se encontró un tutor asociado a esta persona")
+        
+        id_tutor = tutor_row[0]
+        cur.execute("""
+            SELECT a.id_aula, a.grado, a.id_sede, a.id_programa
+            FROM aula a
+            WHERE a.id_tutor = :1
+            ORDER BY a.id_aula
+        """, (id_tutor,))
+        
+        aulas = cur.fetchall()
+        cantidad_aulas = len(aulas)
+        
+        aulas_list = [
+            {
+                "id_aula": r[0],
+                "grado": r[1],
+                "id_sede": r[2],
+                "id_programa": r[3]
+            }
+            for r in aulas
+        ]
+        
+        return {
+            "id_persona": id_persona,
+            "id_tutor": id_tutor,
+            "cantidad_aulas": cantidad_aulas,
+            "aulas": aulas_list
+        }
+    finally:
+        cur.close(); conn.close()
+
 @router.get("/{id_tutor}", response_model=TutorRead)
 def get_tutor(id_tutor: int, user=Depends(get_current_user)):
     conn = get_conn(); cur = conn.cursor()
