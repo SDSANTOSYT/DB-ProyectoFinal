@@ -1,11 +1,15 @@
-# backend/app/routers/tutor.py
-from fastapi import APIRouter, HTTPException, Query
-from typing import List, Optional
+# app/routers/tutor.py
+from fastapi import APIRouter, HTTPException, Depends
+from typing import Optional
+import oracledb
+import logging
 from ..db import get_conn
 from ..schemas import (
     TutorIdResponse, AulaSimple, AulasCountResponse,
     AulaStudentCount, StudentSimple, HorarioSimple
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/tutores", tags=["tutores"])
 
@@ -20,13 +24,22 @@ def get_tutor_by_persona(id_persona: int):
             return {"id_tutor": None}
         return {"id_tutor": row[0]}
     finally:
-        cur.close(); conn.close()
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
 
 # 2) Con id_tutor -> obtener aulas (lista de aulas)
 @router.get("/{id_tutor}/aulas", response_model=List[AulaSimple])
 def get_aulas_by_tutor(id_tutor: int):
     conn = get_conn(); cur = conn.cursor()
     try:
+        conn = get_conn()
+        cur = conn.cursor()
+        
+        logger.info(f"Asignando tutor {payload.id_tutor} al aula {payload.id_aula}")
+        
         cur.execute("""
             SELECT ID_AULA, GRADO, ID_SEDE, ID_PROGRAMA, ID_TUTOR
             FROM AULA
@@ -48,7 +61,11 @@ def get_aulas_by_tutor(id_tutor: int):
             })
         return result
     finally:
-        cur.close(); conn.close()
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
 
 # 3) Con id_tutor -> número de aulas que tiene
 @router.get("/{id_tutor}/aulas/count", response_model=AulasCountResponse)
