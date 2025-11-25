@@ -53,11 +53,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const login = async (email: string, password: string) => {
-    // Simular delay de red
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    const url = `http://127.0.0.1:8000/auth/login`
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ "username": email, "password": password })
+    });
 
     const mockUser = mockUsers[email];
-    if (!mockUser || mockUser.password !== password) {
+    if (!response.ok) {
       throw new Error('Credenciales inválidas');
     }
 
