@@ -191,7 +191,7 @@ class RegistroCambioCreate(BaseModel):
 # Auth
 # -----------------
 class LoginRequest(BaseModel):
-    username: str
+    email: str
     password: str
 
 class LoginResponse(BaseModel):

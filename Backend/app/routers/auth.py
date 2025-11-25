@@ -16,8 +16,8 @@ def login(payload: LoginRequest):
             SELECT p.id_persona, p.nombre, p.correo, p.rol, u.contrasena
             FROM PERSONA p
             JOIN USUARIO u ON p.id_persona = u.id_persona
-            WHERE LOWER(p.nombre) = LOWER(:1)
-        """, (payload.username,))
+            WHERE LOWER(p.correo) = LOWER(:1)
+        """, (payload.email,))
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
