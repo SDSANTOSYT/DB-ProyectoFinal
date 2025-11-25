@@ -37,6 +37,7 @@ class AulaResponse(AulaCreate):
 # Persona / Usuario / Tutor / Estudiante
 # -----------------
 class PersonaCreate(BaseModel):
+    id_persona: int
     nombre: str
     rol: Optional[str] = None
     correo: Optional[str] = None
