@@ -1,17 +1,30 @@
 # app/routers/auth.py
 from fastapi import APIRouter, HTTPException
+import oracledb
+import logging
 from ..db import get_conn
 from ..schemas import LoginRequest, LoginResponse
 from ..utils import create_token_for_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/login", response_model=LoginResponse)
 def login(payload: LoginRequest):
-    conn = get_conn()
-    cur = conn.cursor()
+    """
+    Autentica a un usuario y retorna un token de acceso.
+    """
+    conn = None
+    cur = None
+    
     try:
-        # buscamos persona + usuario (con correo y rol)
+        conn = get_conn()
+        cur = conn.cursor()
+        
+        logger.info(f"Intento de login para usuario: {payload.username}")
+        
+        # Buscar el usuario
         cur.execute("""
             SELECT p.id_persona, p.nombre, p.correo, p.rol, u.contrasena
             FROM PERSONA p
@@ -19,6 +32,7 @@ def login(payload: LoginRequest):
             WHERE LOWER(p.correo) = LOWER(:1)
         """, (payload.email,))
         row = cur.fetchone()
+        
         if not row:
             raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
 

@@ -1,7 +1,11 @@
 # app/routers/persona.py
 from fastapi import APIRouter, HTTPException
+import oracledb
+import logging
 from ..db import get_conn
 from ..schemas import PersonaCreate, PersonaRead
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/personas", tags=["personas"])
 
