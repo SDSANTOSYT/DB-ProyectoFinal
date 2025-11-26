@@ -73,19 +73,42 @@ export default function GestionPersonal() {
       setTutors(data);
       // 👇 Si cada "tutor" del backend representa un slot, puedes inicializar las cartas aquí:
       setTutorCards(Array.from({ length: data.length }, (_, i) => i));
+      const mapped = data.reduce<Record<number, string | null>>((acc, tutor) => {
+        acc[tutor.id_tutor] = String(tutor.id_persona);
+        return acc;
+      }, {})
+      setTutorAssignments(mapped)
+      console.log(tutorAssignments)
     };
     obtenerTutores();
   }, []);
 
+
+
+  const getPersonal = async () => {
+    const url = `http://127.0.0.1:8000/personas/`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!response.ok) {
+      console.log(response.statusText);
+      return [];
+    }
+
+    const personalData = await response.json();
+    return personalData as User[];
+  };
   // TODO: aquí deberías traer el personal desde tu backend y hacer setPersonal(...)
-  // useEffect(() => {
-  //   const obtenerPersonal = async () => {
-  //     const response = await fetch("http://127.0.0.1:8000/personas/all");
-  //     const data = await response.json();
-  //     setPersonal(data);
-  //   };
-  //   obtenerPersonal();
-  // }, []);
+  useEffect(() => {
+    const obtenerPersonal = async () => {
+      const data = await getPersonal();
+      setPersonal(data);
+    };
+    obtenerPersonal();
+  }, []);
 
   const filteredTutores = personal.filter(
     (persona) =>
@@ -330,7 +353,7 @@ export default function GestionPersonal() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    {/* aquí podrías mostrar el rol si viene del backend */}
+                    {persona.rol}
                   </TableCell>
                   <TableCell>
                     <Button
@@ -422,14 +445,17 @@ export default function GestionPersonal() {
                         <SelectValue placeholder="Seleccionar persona" />
                       </SelectTrigger>
                       <SelectContent>
-                        {personal.map((p) => (
-                          <SelectItem
-                            key={p.id_persona}
-                            value={String(p.id_persona)}
-                          >
-                            {p.nombre} - {p.id_persona}
-                          </SelectItem>
-                        ))}
+                        {personal.map((p) => {
+                          if (p.rol === 'TUTOR') {
+                            return (<SelectItem
+                              key={p.id_persona}
+                              value={String(p.id_persona)}
+                            >
+                              {p.nombre} - {p.id_persona}
+                            </SelectItem>)
+                          }
+                        }
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
