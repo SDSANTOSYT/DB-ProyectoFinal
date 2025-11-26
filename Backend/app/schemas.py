@@ -7,14 +7,30 @@ from typing import Optional
 # -----------------
 class InstitucionCreate(BaseModel):
     nombre: str
+    jornada: str
+    duracion_hora: int
 
 class SedeCreate(BaseModel):
     nombre_sede: str
     direccion: Optional[str] = None
     id_institucion: int
+    telefono: Optional[str] = None
 
 class ProgramaCreate(BaseModel):
     tipo: str
+
+class InstitucionRead(BaseModel):
+    id_institucion: int
+    nombre: str
+    duracion_hora: int
+    jornada: str
+
+class SedeRead(BaseModel):
+    id_sede: int
+    nombre_sede: str
+    direccion: Optional[str] = None
+    id_institucion: Optional[int] = None
+    telefono: Optional[str] = None
 
 # Aula: incluimos campos de ambas variantes (ER y versión anterior)
 class AulaCreate(BaseModel):
@@ -84,6 +100,18 @@ class EstudianteRead(BaseModel):
     score_inicial: Optional[float]
     score_final: Optional[float]
     id_aula: Optional[int]
+
+class TutorListItem(BaseModel):
+    id_tutor: int
+    id_persona: Optional[int] = None
+
+class TutorAssignRequest(BaseModel):
+    id_persona: int
+
+class TutorAssignResponse(BaseModel):
+    id_tutor: int
+    id_persona: Optional[int] = None
+    mensaje: Optional[str] = None
 
 # -----------------
 # Horario / Periodo / Componente / Nota
@@ -230,3 +258,4 @@ class HorarioSimple(BaseModel):
     hora_fin: Optional[str] = None
     id_aula: Optional[int] = None
     id_tutor: Optional[int] = None
+

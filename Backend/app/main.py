@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .db import init_db
 
 # importa routers
-from .routers import auth, persona, usuario, tutor, estudiante, aula, sede, programa, horario, periodo, componente, nota, asistencia, motivo, registro_cambio
+from .routers import auth, persona, usuario, tutor, estudiante, aula, sede, programa, horario, periodo, componente, nota, asistencia, motivo, registro_cambio, institucion
 
 app = FastAPI(title="GlobalEnglish API - Modelo ER Real")
 
@@ -37,3 +37,4 @@ app.include_router(nota.router)
 app.include_router(asistencia.router)
 app.include_router(motivo.router)
 app.include_router(registro_cambio.router)
+app.include_router(institucion.router)

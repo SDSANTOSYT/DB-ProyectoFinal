@@ -5,8 +5,8 @@ import oracledb
 import logging
 from ..db import get_conn
 from ..schemas import (
-    TutorIdResponse, AulaSimple, AulasCountResponse,
-    AulaStudentCount, StudentSimple, HorarioSimple
+    TutorAssignRequest, TutorAssignResponse, TutorIdResponse, AulaSimple, AulasCountResponse,
+    AulaStudentCount, StudentSimple, HorarioSimple, LoginRequest, LoginResponse, TutorListItem
 )
 
 logger = logging.getLogger(__name__)
@@ -176,3 +176,45 @@ def horarios_by_tutors(tutors: Optional[str] = Query(None, description="Lista de
         return result
     finally:
         cur.close(); conn.close()
+
+# 8) listar todos los tutores con su id_persona
+@router.get("/all", response_model=List[TutorListItem])
+def listar_todos_tutores():
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        # Selecciona todos los tutores con su id_persona (puede ser NULL)
+        cur.execute("SELECT ID_TUTOR, ID_PERSONA FROM TUTOR ORDER BY ID_TUTOR")
+        rows = cur.fetchall()
+        result = [{"id_tutor": r[0], "id_persona": r[1]} for r in rows]
+        return result
+    finally:
+        cur.close()
+        conn.close()
+
+# 9) asignar / relacionar un tutor con una persona
+@router.put("/{id_tutor}/asignar-persona", response_model=TutorAssignResponse)
+def asignar_persona_a_tutor(id_tutor: int, payload: TutorAssignRequest):
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        # Verificar que el tutor exista
+        cur.execute("SELECT ID_TUTOR FROM TUTOR WHERE ID_TUTOR = :1", (id_tutor,))
+        t = cur.fetchone()
+        if not t:
+            raise HTTPException(status_code=404, detail=f"Tutor {id_tutor} no existe")
+
+        # Verificar que la persona exista
+        cur.execute("SELECT ID_PERSONA FROM PERSONA WHERE ID_PERSONA = :1", (payload.id_persona,))
+        p = cur.fetchone()
+        if not p:
+            raise HTTPException(status_code=404, detail=f"Persona {payload.id_persona} no existe")
+
+        # Actualizar la relación
+        cur.execute("UPDATE TUTOR SET ID_PERSONA = :1 WHERE ID_TUTOR = :2", (payload.id_persona, id_tutor))
+        conn.commit()
+
+        return {"id_tutor": id_tutor, "id_persona": payload.id_persona, "mensaje": "Asignación realizada"}
+    finally:
+        cur.close()
+        conn.close()

@@ -1,8 +1,10 @@
-export type Rol = 'ADMINISTRADOR' | 'ADMINISTRATIVO' | 'TUTOR';
+export type Rol = 'NULL'| 'ADMINISTRADOR' | 'ADMINISTRATIVO' | 'TUTOR';
 
+export type Jornada = 'NULL' | 'UNICA MAÑANA' | 'UNICA TARDE' | 'MIXTA';
 
 export interface Aula {
   id_aula: number
+  nombre: string,
   grado: string
   id_sede: number
   id_programa: number
@@ -14,7 +16,12 @@ export interface User {
   nombre: string;
   correo: string;
   rol: Rol;
-  id_persona: string;
+  id_persona: number;
+}
+
+export interface Tutor {
+  id_tutor: number;
+  id_persona: number,
 }
 
 export interface Horario {

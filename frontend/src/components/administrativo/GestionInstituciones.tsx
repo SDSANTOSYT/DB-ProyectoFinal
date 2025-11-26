@@ -4,7 +4,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../ui/select';import { useState } from 'react';
+} from '../ui/select'; import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { instituciones, getSedesByInstitucion, getAulasBySede } from '../../lib/mockData';
 import { toast } from 'sonner@2.0.3';
+import type { Jornada } from '../../lib/types';
 
 export default function GestionInstituciones() {
   const navigate = useNavigate();
@@ -41,50 +42,74 @@ export default function GestionInstituciones() {
   const [openDialog, setOpenDialog] = useState(false);
   const [openSedeDialog, setOpenSedeDialog] = useState(false);
   const [selectedInstitucion, setSelectedInstitucion] = useState<string | null>(null);
-  
+
   // Estado para el formulario de nueva institución
   const [formData, setFormData] = useState({
     nombre: '',
-    nit: '',
     direccion: '',
     telefono: '',
-    ciudad: '',
-    duracion_clase: '60' // Duración en minutos (40, 45, 50, 55, 60)
+    duracion_clase: '60', // Duración en minutos (40, 45, 50, 55, 60)
+    jornada: ''
   });
 
-  const handleAddInstitucion = (e: React.FormEvent) => {
+  const handleAddInstitucion = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Aquí se crearía la institución en el backend
-    // const nuevaInstitucion = {
-    //   nombre: formData.nombre,
-    //   nit: formData.nit,
-    //   ciudad: formData.ciudad
-    // };
-    
+    const nuevaInstitucion = {
+      nombre: formData.nombre,
+      jornada: formData.jornada,
+      duracion_hora: Number(formData.duracion_clase),
+    };
+
+    console.log(nuevaInstitucion)
+
+    let url = `http://127.0.0.1:8000/instituciones/`;
+
+    let response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(nuevaInstitucion),
+    });
+
+    if (!response.ok) {
+      throw new Error("Error Creando Institución");
+    }
+
+    const institucionData = await response.json()
+
     // Automáticamente crear la Sede Principal con los mismos datos
-    // const sedePrincipal = {
-    //   nombre: "Sede Principal",
-    //   institucionId: nuevaInstitucion.id,
-    //   direccion: formData.direccion,
-    //   telefono: formData.telefono,
-    //   esPrincipal: true
-    // };
-    
+    const sedePrincipal = {
+      nombre_sede: "Sede Principal",
+      direccion: formData.direccion,
+      id_institucion: institucionData.id_institucion,
+      telefono: formData.telefono,
+    };
+
+    url = `http://127.0.0.1:8000/sedes/`
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(sedePrincipal),
+    });
+
+    if (!response.ok) {
+      throw new Error("Error Creando Sede Principal");
+    }
+
     // Limpiar formulario
     setFormData({
       nombre: '',
-      nit: '',
       direccion: '',
       telefono: '',
-      ciudad: '',
-      duracion_clase: '60'
+      duracion_clase: '60',
+      jornada: ''
     });
-    
+
     toast.success('Institución y Sede Principal creadas exitosamente');
     setOpenDialog(false);
   };
-  
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
     setFormData(prev => ({
@@ -101,11 +126,11 @@ export default function GestionInstituciones() {
 
   const handleGestionarAulas = (sedeId: string, institucionId: string) => {
     // Navega a la página de aulas con filtros aplicados
-    navigate('/aulas', { 
-      state: { 
+    navigate('/aulas', {
+      state: {
         filterSede: sedeId,
-        filterInstitucion: institucionId 
-      } 
+        filterInstitucion: institucionId
+      }
     });
   };
 
@@ -135,62 +160,59 @@ export default function GestionInstituciones() {
             <form onSubmit={handleAddInstitucion} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="nombre">Nombre de la Institución</Label>
-                <Input 
-                  id="nombre" 
-                  placeholder="Ej: Colegio San José" 
+                <Input
+                  id="nombre"
+                  placeholder="Ej: Colegio San José"
                   value={formData.nombre}
                   onChange={handleInputChange}
-                  required 
+                  required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="nit">NIT</Label>
-                <Input 
-                  id="nit" 
-                  placeholder="900123456-1" 
-                  value={formData.nit}
-                  onChange={handleInputChange}
-                  required 
-                />
+                <Label htmlFor="jornada">Jornada</Label>
+                <Select
+                  value={formData.jornada}
+                  onValueChange={(value: Jornada) => setFormData(prev => ({ ...prev, jornada: value }))}
+                  required
+                >
+                  <SelectTrigger id="jornada">
+                    <SelectValue placeholder="Seleccionar Jornada" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="UNICA MAÑANA">Unica Mañana</SelectItem>
+                    <SelectItem value="UNICA TARDE">Unica Tarde</SelectItem>
+                    <SelectItem value="MIXTA">MIXTA</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="direccion">Dirección (Sede Principal)</Label>
-                <Input 
-                  id="direccion" 
-                  placeholder="Calle 45 #23-67" 
+                <Input
+                  id="direccion"
+                  placeholder="Calle 45 #23-67"
                   value={formData.direccion}
                   onChange={handleInputChange}
-                  required 
+                  required
                 />
                 <p className="text-xs text-muted-foreground">
                   Esta dirección se usará para la sede principal
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="telefono">Teléfono (Sede Principal)</Label>
-                  <Input 
-                    id="telefono" 
-                    placeholder="3201234567" 
-                    value={formData.telefono}
-                    onChange={handleInputChange}
-                    required 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ciudad">Ciudad</Label>
-                  <Input 
-                    id="ciudad" 
-                    placeholder="Bogotá" 
-                    value={formData.ciudad}
-                    onChange={handleInputChange}
-                    required 
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="telefono">Teléfono (Sede Principal)</Label>
+                <Input
+                  id="telefono"
+                  placeholder="3201234567"
+                  value={formData.telefono}
+                  onChange={handleInputChange}
+                  required
+                />
               </div>
+
+
               <div className="space-y-2">
                 <Label htmlFor="duracion_clase">Duración de Clases (minutos)</Label>
-                <Select 
+                <Select
                   value={formData.duracion_clase}
                   onValueChange={(value) => setFormData(prev => ({ ...prev, duracion_clase: value }))}
                   required
@@ -272,9 +294,8 @@ export default function GestionInstituciones() {
                       </div>
                       <Button variant="ghost" size="sm">
                         <ChevronDown
-                          className={`w-5 h-5 transition-transform ${
-                            isExpanded ? 'rotate-180' : ''
-                          }`}
+                          className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-180' : ''
+                            }`}
                         />
                       </Button>
                     </div>
@@ -321,8 +342,8 @@ export default function GestionInstituciones() {
                                 Tel: {sede.telefono}
                               </p>
                             </div>
-                            <Button 
-                              variant="outline" 
+                            <Button
+                              variant="outline"
                               size="sm"
                               onClick={() => handleGestionarAulas(sede.id, inst.id)}
                             >
