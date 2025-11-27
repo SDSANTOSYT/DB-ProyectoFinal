@@ -67,24 +67,6 @@ export default function GestionPersonal() {
     return tutoresData as Tutor[];
   };
 
-  useEffect(() => {
-    const obtenerTutores = async () => {
-      const data = await getTutors();
-      setTutors(data);
-      // 👇 Si cada "tutor" del backend representa un slot, puedes inicializar las cartas aquí:
-      setTutorCards(Array.from({ length: data.length }, (_, i) => i));
-      const mapped = data.reduce<Record<number, string | null>>((acc, tutor) => {
-        acc[tutor.id_tutor] = String(tutor.id_persona);
-        return acc;
-      }, {})
-      setTutorAssignments(mapped)
-      console.log(tutorAssignments)
-    };
-    obtenerTutores();
-  }, []);
-
-
-
   const getPersonal = async () => {
     const url = `http://127.0.0.1:8000/personas/`;
 
@@ -101,6 +83,7 @@ export default function GestionPersonal() {
     const personalData = await response.json();
     return personalData as User[];
   };
+
   // TODO: aquí deberías traer el personal desde tu backend y hacer setPersonal(...)
   useEffect(() => {
     const obtenerPersonal = async () => {
@@ -109,6 +92,25 @@ export default function GestionPersonal() {
     };
     obtenerPersonal();
   }, []);
+
+
+  useEffect(() => {
+    const obtenerTutores = async () => {
+      const data = await getTutors();
+      setTutors(data);
+      // 👇 Si cada "tutor" del backend representa un slot, puedes inicializar las cartas aquí:
+      setTutorCards(data.map((tutor) => tutor.id_tutor));
+      const mapped = data.reduce<Record<number, string | null>>((acc, tutor) => {
+        acc[tutor.id_tutor] = String(tutor.id_persona);
+        return acc;
+      }, {})
+      setTutorAssignments(mapped)
+    };
+    obtenerTutores();
+  }, []);
+
+
+
 
   const filteredTutores = personal.filter(
     (persona) =>
@@ -162,7 +164,7 @@ export default function GestionPersonal() {
   };
 
   // asignar persona a una carta de tutor, garantizando que no se repita en otra
-  const handleSelectPersonaForCard = (cardId: number, personaId: string) => {
+  const handleSelectPersonaForCard = async (cardId: number, personaId: string) => {
     setTutorAssignments((prev) => {
       const updated: Record<number, string | null> = { ...prev };
 
@@ -177,15 +179,14 @@ export default function GestionPersonal() {
       updated[cardId] = personaId;
 
       // 👇 AQUÍ deberías llamar al backend para guardar la ASIGNACIÓN
-      // const payload = {
-      //   slotId: cardId,
-      //   personaId,
-      // };
-      // await fetch("http://127.0.0.1:8000/tutores/asignar-persona", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify(payload),
-      // });
+      const payload = {
+        id_persona: personaId,
+      };
+      fetch(`http://127.0.0.1:8000/tutores/${cardId}/asignar-persona`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
       return updated;
     });
@@ -218,7 +219,11 @@ export default function GestionPersonal() {
       throw new Error("Error Creando persona");
     }
 
-    toast.success("Tutor contratado exitosamente");
+    toast.success("Persona contratada exitosamente");
+
+    const updated = await getPersonal()
+    setPersonal(updated)
+
     setOpenDialog(false);
   };
 
