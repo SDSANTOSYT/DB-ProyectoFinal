@@ -32,9 +32,9 @@ class SedeRead(BaseModel):
     id_institucion: Optional[int] = None
     telefono: Optional[str] = None
 
-# Aula: incluimos campos de ambas variantes (ER y versión anterior)
+# Aula: incluimos campos de ambas variantes 
 class AulaCreate(BaseModel):
-    # campos del ER
+    id_aula: int
     grado: Optional[str] = None
     nombre_aula: str
     id_sede: int
@@ -44,6 +44,7 @@ class AulaCreate(BaseModel):
     capacidad: Optional[int] = None
 
 class AulaUpdate(BaseModel):
+    id_aula: int
     nombre_aula: Optional[str] = None
     grado: Optional[str] = None
     id_sede: Optional[int] = None
