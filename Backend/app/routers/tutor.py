@@ -5,8 +5,8 @@ import oracledb
 import logging
 from ..db import get_conn
 from ..schemas import (
-    TutorAssignRequest, TutorAssignResponse, TutorIdResponse, AulaSimple, AulasCountResponse,
-    AulaStudentCount, StudentSimple, HorarioSimple, LoginRequest, LoginResponse, TutorListItem
+    TutorAssignRequest, TutorAssignResponse, TutorCreate, TutorDeleteResponse, TutorIdResponse, AulaSimple, AulasCountResponse,
+    AulaStudentCount, StudentSimple, HorarioSimple, LoginRequest, LoginResponse, TutorListItem, TutorUnlinkResponse
 )
 
 logger = logging.getLogger(__name__)
@@ -218,3 +218,54 @@ def asignar_persona_a_tutor(id_tutor: int, payload: TutorAssignRequest):
     finally:
         cur.close()
         conn.close()
+
+
+# 10) Crear tutor 
+@router.post("/", status_code=201)
+def crear_tutor(payload: TutorCreate):
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        if payload.id_persona is not None:
+            # verificar persona existe
+            cur.execute("SELECT ID_PERSONA FROM PERSONA WHERE ID_PERSONA = :1", (payload.id_persona,))
+            if not cur.fetchone():
+                raise HTTPException(status_code=404, detail="Persona no encontrada")
+        cur.execute("INSERT INTO TUTOR (ID_PERSONA) VALUES (:1)", (payload.id_persona,))
+        conn.commit()
+        # devolver tutor creado
+        cur2 = conn.cursor()
+        cur2.execute("SELECT ID_TUTOR, ID_PERSONA FROM TUTOR WHERE ID_TUTOR = (SELECT MAX(ID_TUTOR) FROM TUTOR)")
+        r = cur2.fetchone()
+        return {"id_tutor": r[0], "id_persona": r[1]}
+    finally:
+        cur.close(); conn.close()
+
+# 11) Eliminar tutor 
+@router.delete("/{id_tutor}", response_model=TutorDeleteResponse)
+def eliminar_tutor(id_tutor: int):
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        # opcional: verificar no hay dependencias (aulas, asistencias, etc.)
+        # Si quieres evitar borrados cuando hay dependencias, chequea y lanza 400.
+        cur.execute("DELETE FROM TUTOR WHERE ID_TUTOR = :1", (id_tutor,))
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Tutor no encontrado")
+        conn.commit()
+        return {"id_tutor": id_tutor, "mensaje": "Tutor eliminado correctamente"}
+    finally:
+        cur.close(); conn.close()
+
+# 12) Desvincular persona de tutor 
+@router.put("/{id_tutor}/desvincular-persona", response_model=TutorUnlinkResponse)
+def desvincular_persona_de_tutor(id_tutor: int):
+    conn = get_conn(); cur = conn.cursor()
+    try:
+        cur.execute("SELECT ID_TUTOR, ID_PERSONA FROM TUTOR WHERE ID_TUTOR = :1", (id_tutor,))
+        r = cur.fetchone()
+        if not r:
+            raise HTTPException(status_code=404, detail="Tutor no encontrado")
+        cur.execute("UPDATE TUTOR SET ID_PERSONA = NULL WHERE ID_TUTOR = :1", (id_tutor,))
+        conn.commit()
+        return {"id_tutor": id_tutor, "id_persona": None, "mensaje": "Persona desvinculada del tutor"}
+    finally:
+        cur.close(); conn.close()

@@ -40,6 +40,8 @@ class AulaCreate(BaseModel):
     id_sede: int
     id_tutor: Optional[int] = None
     id_programa: Optional[int] = None
+    id_institucion: int
+    capacidad: Optional[int] = None
 
 class AulaUpdate(BaseModel):
     nombre_aula: Optional[str] = None
@@ -47,9 +49,16 @@ class AulaUpdate(BaseModel):
     id_sede: Optional[int] = None
     id_tutor: Optional[int] = None
     id_programa: Optional[int] = None
+    id_institucion: Optional[int] = None
 
 class AulaResponse(AulaCreate):
     id_aula: int
+    nombre_aula: Optional[str] = None
+    grado: Optional[str] = None
+    capacidad: Optional[int] = None
+    ubicacion: Optional[str] = None
+    id_sede: int
+    id_institucion: int
     
 
 # -----------------
@@ -72,7 +81,7 @@ class UsuarioCreate(BaseModel):
     id_persona: int
 
 class TutorCreate(BaseModel):
-    id_persona: int
+    id_persona: Optional[int] = None
 
 class TutorRead(BaseModel):
     id_tutor: int
@@ -112,6 +121,15 @@ class TutorAssignResponse(BaseModel):
     id_tutor: int
     id_persona: Optional[int] = None
     mensaje: Optional[str] = None
+
+class TutorDeleteResponse(BaseModel):
+    id_tutor: int
+    mensaje: str
+
+class TutorUnlinkResponse(BaseModel):
+    id_tutor: int
+    id_persona: Optional[int] = None
+    mensaje: str
 
 # -----------------
 # Horario / Periodo / Componente / Nota
@@ -258,4 +276,23 @@ class HorarioSimple(BaseModel):
     hora_fin: Optional[str] = None
     id_aula: Optional[int] = None
     id_tutor: Optional[int] = None
+
+
+# -----------------
+# Sede
+# -----------------
+
+class SedeRead(BaseModel):
+    id_sede: int
+    id_institucion: int
+    nombre_sede: str
+    direccion: Optional[str] = None
+    telefono: Optional[str] = None
+
+class SedeCreate(BaseModel):
+    nombre_sede: str
+    direccion: Optional[str] = None
+    id_institucion: int
+    telefono: Optional[str] = None
+
 
