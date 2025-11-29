@@ -4,7 +4,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../ui/select'; import { useState } from 'react';
+} from '../ui/select'; import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
@@ -28,20 +28,22 @@ import {
   Building2,
   Plus,
   ChevronDown,
-  MapPin,
-  Phone,
   School,
+  Clock,
+  Timer,
+  CalendarClock,
 } from 'lucide-react';
-import { instituciones, getSedesByInstitucion, getAulasBySede } from '../../lib/mockData';
 import { toast } from 'sonner@2.0.3';
-import type { Jornada } from '../../lib/types';
+import type { Jornada, Institucion, Sede } from '../../lib/types';
 
 export default function GestionInstituciones() {
   const navigate = useNavigate();
-  const [expandedInst, setExpandedInst] = useState<string | null>(null);
+  const [expandedInst, setExpandedInst] = useState<number | null>(null);
   const [openDialog, setOpenDialog] = useState(false);
   const [openSedeDialog, setOpenSedeDialog] = useState(false);
-  const [selectedInstitucion, setSelectedInstitucion] = useState<string | null>(null);
+  const [selectedInstitucion, setSelectedInstitucion] = useState<number | null>(null);
+  const [instituciones, setInstituciones] = useState<Institucion[]>([]);
+  const [sedesByInstitution, setSedesByInstitution] = useState<Record<number, Sede[]>>({});
 
   // Estado para el formulario de nueva institución
   const [formData, setFormData] = useState({
@@ -49,8 +51,66 @@ export default function GestionInstituciones() {
     direccion: '',
     telefono: '',
     duracion_clase: '60', // Duración en minutos (40, 45, 50, 55, 60)
-    jornada: ''
+    jornada: '',
+    nombre_sede: ''
   });
+
+  const getInstituciones = async () => {
+    const url = `http://127.0.0.1:8000/instituciones/`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!response.ok) {
+      console.log(response.statusText);
+      return [];
+    }
+
+    const institucionesData = await response.json();
+    return institucionesData as Institucion[];
+  };
+
+  const getSedesById = async (id_institucion: number) => {
+    const url = `http://127.0.0.1:8000/sedes/by-institucion/${id_institucion}`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!response.ok) {
+      console.log(response.statusText);
+      return [];
+    }
+
+    const sedesData = await response.json();
+    return sedesData as Sede[];
+  };
+
+  useEffect(() => {
+    const obtenerInstituciones = async () => {
+      const data = await getInstituciones();
+      setInstituciones(data);
+    };
+    obtenerInstituciones();
+  }, []);
+
+
+  const handleExpandInstitution = async (instId: number) => {
+    setExpandedInst(prev => (prev === instId ? null : instId));
+
+    if (sedesByInstitution[instId]) return;
+
+    const sedes = await getSedesById(instId);
+
+    setSedesByInstitution(prev => ({
+      ...prev,
+      [instId]: sedes,
+    }));
+  }
+
 
   const handleAddInstitucion = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,6 +138,8 @@ export default function GestionInstituciones() {
 
     const institucionData = await response.json()
 
+    setInstituciones(prev => [...prev, institucionData])
+
     // Automáticamente crear la Sede Principal con los mismos datos
     const sedePrincipal = {
       nombre_sede: "Sede Principal",
@@ -97,13 +159,22 @@ export default function GestionInstituciones() {
       throw new Error("Error Creando Sede Principal");
     }
 
+    const sedeData = await response.json()
+
+    setSedesByInstitution(prev => ({
+      ...prev,
+      [institucionData.id_institucion]: [sedeData]
+    }))
+
+
     // Limpiar formulario
     setFormData({
       nombre: '',
       direccion: '',
       telefono: '',
       duracion_clase: '60',
-      jornada: ''
+      jornada: '',
+      nombre_sede: ''
     });
 
     toast.success('Institución y Sede Principal creadas exitosamente');
@@ -118,8 +189,43 @@ export default function GestionInstituciones() {
     }));
   };
 
-  const handleAddSede = (e: React.FormEvent) => {
+  const handleAddSede = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const sedeNueva = {
+      nombre_sede: formData.nombre_sede,
+      direccion: formData.direccion,
+      id_institucion: selectedInstitucion,
+      telefono: formData.telefono,
+    };
+
+    const url = `http://127.0.0.1:8000/sedes/`
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(sedeNueva),
+    });
+
+    if (!response.ok) {
+      throw new Error("Error Creando Sede Principal");
+    }
+
+    const sedeData = await response.json()
+
+    setSedesByInstitution(prev => ({
+      ...prev,
+      [selectedInstitucion!]: [...(prev[selectedInstitucion!] || []), sedeData]
+    }))
+
+    setFormData({
+      nombre: '',
+      direccion: '',
+      telefono: '',
+      duracion_clase: '60',
+      jornada: '',
+      nombre_sede: ''
+    });
+
     toast.success('Sede creada exitosamente');
     setOpenSedeDialog(false);
   };
@@ -214,7 +320,7 @@ export default function GestionInstituciones() {
                 <Label htmlFor="duracion_clase">Duración de Clases (minutos)</Label>
                 <Select
                   value={formData.duracion_clase}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, duracion_clase: value }))}
+                  onValueChange={(value: string) => setFormData(prev => ({ ...prev, duracion_clase: value }))}
                   required
                 >
                   <SelectTrigger id="duracion_clase">
@@ -255,18 +361,18 @@ export default function GestionInstituciones() {
 
       <div className="space-y-4">
         {instituciones.map((inst) => {
-          const sedes = getSedesByInstitucion(inst.id);
-          const totalAulas = sedes.reduce((acc, sede) => {
-            return acc + getAulasBySede(sede.id).length;
-          }, 0);
-          const isExpanded = expandedInst === inst.id;
+          const sedes = sedesByInstitution[inst.id_institucion] || [];
+          /*const totalAulas = sedes.reduce((acc, sede) => {
+            return acc + getAulasBySede(sede.id_sede).length;
+          }, 0);*/
+          const isExpanded = expandedInst === inst.id_institucion;
 
           return (
-            <Card key={inst.id}>
+            <Card key={inst.id_institucion}>
               <Collapsible
                 open={isExpanded}
                 onOpenChange={() =>
-                  setExpandedInst(isExpanded ? null : inst.id)
+                  handleExpandInstitution(inst.id_institucion)
                 }
               >
                 <CardHeader>
@@ -280,15 +386,15 @@ export default function GestionInstituciones() {
                           <CardTitle>{inst.nombre}</CardTitle>
                           <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                             <span className="flex items-center gap-1">
-                              <MapPin className="w-4 h-4" />
-                              {inst.ciudad}
+                              <CalendarClock className="w-4 h-4" />
+                              {inst.jornada}
                             </span>
                             <span className="flex items-center gap-1">
-                              <Phone className="w-4 h-4" />
-                              {inst.telefono}
+                              <Timer className="w-4 h-4" />
+                              {inst.duracion_hora}
                             </span>
                             <Badge variant="secondary">{sedes.length} Sedes</Badge>
-                            <Badge variant="outline">{totalAulas} Aulas</Badge>
+                            {/*<Badge variant="outline">{totalAulas} Aulas</Badge>*/}
                           </div>
                         </div>
                       </div>
@@ -311,7 +417,7 @@ export default function GestionInstituciones() {
                           size="sm"
                           variant="outline"
                           onClick={() => {
-                            setSelectedInstitucion(inst.id);
+                            setSelectedInstitucion(inst.id_institucion);
                             setOpenSedeDialog(true);
                           }}
                         >
@@ -319,40 +425,39 @@ export default function GestionInstituciones() {
                           Agregar Sede
                         </Button>
                       </div>
-
-                      {sedes.map((sede) => {
-                        const aulasCount = getAulasBySede(sede.id).length;
-                        return (
-                          <div
-                            key={sede.id}
-                            className="flex items-center justify-between p-4 border rounded-lg bg-gray-50"
-                          >
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <p>{sede.nombre}</p>
-                                <Badge variant="secondary">
+                      {
+                        sedes.map((sede) => {
+                          //const aulasCount = getAulasBySede(sede.id).length;
+                          return (
+                            <div
+                              key={sede.id_sede}
+                              className="flex items-center justify-between p-4 border rounded-lg bg-gray-50"
+                            >
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <p>{sede.nombre_sede}</p>
+                                  {/*<Badge variant="secondary">
                                   <School className="w-3 h-3 mr-1" />
                                   {aulasCount} aulas
-                                </Badge>
+                                </Badge>*/}
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {sede.direccion}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  Tel: {sede.telefono}
+                                </p>
                               </div>
-                              <p className="text-sm text-muted-foreground">
-                                {sede.direccion}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                Tel: {sede.telefono}
-                              </p>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleGestionarAulas(sede.id_sede.toString(), inst.id_institucion.toString())}
+                              >
+                                Gestionar Aulas
+                              </Button>
                             </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleGestionarAulas(sede.id, inst.id)}
-                            >
-                              Gestionar Aulas
-                            </Button>
-                          </div>
-                        );
-                      })}
-
+                          );
+                        })}
                       {sedes.length === 0 && (
                         <div className="text-center py-8 text-muted-foreground">
                           <Building2 className="w-12 h-12 mx-auto mb-2 opacity-50" />
@@ -382,24 +487,30 @@ export default function GestionInstituciones() {
             <div className="space-y-2">
               <Label htmlFor="sede-nombre">Nombre de la Sede</Label>
               <Input
-                id="sede-nombre"
+                id="nombre_sede"
                 placeholder="Ej: Sede Principal"
+                value={formData.nombre_sede}
+                onChange={handleInputChange}
                 required
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="sede-direccion">Dirección</Label>
               <Input
-                id="sede-direccion"
+                id="direccion"
                 placeholder="Calle 45 #23-67"
+                value={formData.direccion}
+                onChange={handleInputChange}
                 required
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="sede-telefono">Teléfono</Label>
               <Input
-                id="sede-telefono"
+                id="telefono"
                 placeholder="3201234567"
+                value={formData.telefono}
+                onChange={handleInputChange}
                 required
               />
             </div>

@@ -133,14 +133,20 @@ export default function GestionPersonal() {
       const newId = prev.length > 0 ? Math.max(...prev) + 1 : 0;
       const next = [...prev, newId];
 
-      // 👇 AQUÍ deberías llamar al backend para crear un NUEVO TUTOR / SLOT
-      // const payload = { slotId: newId };
-      // await fetch("http://127.0.0.1:8000/tutores/crear-slot", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify(payload),
-      // });
-      // Luego podrías refrescar la lista de tutores con getTutors()
+      // 👇 AQUÍ llamamos al backend para crear un NUEVO TUTOR / SLOT (fire-and-forget)
+      const payload = { id_persona: null };
+      (async () => {
+        try {
+          await fetch("http://127.0.0.1:8000/tutores/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          // Opcional: refrescar la lista de tutores llamando a getTutors()
+        } catch (err) {
+          console.error("Error creando slot de tutor:", err);
+        }
+      })();
 
       return next;
     });
@@ -157,9 +163,11 @@ export default function GestionPersonal() {
     });
 
     // 👇 AQUÍ deberías llamar al backend para BORRAR el tutor / slot
-    // await fetch(`http://127.0.0.1:8000/tutores/slots/${cardId}`, {
-    //   method: "DELETE",
-    // });
+    (async () => {
+      await fetch(`http://127.0.0.1:8000/tutores/${cardId}`, {
+        method: "DELETE",
+      });
+    })()
     // Y probablemente refrescar el estado desde el backend
   };
 
@@ -173,6 +181,12 @@ export default function GestionPersonal() {
         const existingCardId = Number(key);
         if (updated[existingCardId] === personaId && existingCardId !== cardId) {
           updated[existingCardId] = null;
+          (async () => {
+            await fetch(`http://127.0.0.1:8000/tutores/${existingCardId}/desvincular-persona`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+            });
+          })()
         }
       });
 
@@ -182,11 +196,13 @@ export default function GestionPersonal() {
       const payload = {
         id_persona: personaId,
       };
-      fetch(`http://127.0.0.1:8000/tutores/${cardId}/asignar-persona`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      (async () => {
+        await fetch(`http://127.0.0.1:8000/tutores/${cardId}/asignar-persona`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      })()
 
       return updated;
     });
@@ -289,12 +305,12 @@ export default function GestionPersonal() {
                     <SelectItem key="TUTOR" value="TUTOR">
                       Tutor
                     </SelectItem>
-                    <SelectItem key="ADMINISTRATIVO" value="ADMINISTRATIVO">
+                    {user?.rol === 'ADMINISTRADOR' && <SelectItem key="ADMINISTRATIVO" value="ADMINISTRATIVO">
                       Administrativo
-                    </SelectItem>
-                    <SelectItem key="ADMINISTRADOR" value="ADMINISTRADOR">
+                    </SelectItem>}
+                    {user?.rol === 'ADMINISTRADOR' && <SelectItem key="ADMINISTRADOR" value="ADMINISTRADOR">
                       Administrador
-                    </SelectItem>
+                    </SelectItem>}
                   </SelectContent>
                 </Select>
               </div>
