@@ -14,30 +14,47 @@ services:
 
   backend:
     build:
-      context: ./Backend
+      context: ./Backend      # cambialo a ./backend si tu carpeta es así
       dockerfile: Dockerfile
     container_name: backend
     depends_on:
       - oracle-db
     environment:
-      # Estos deben cuadrar con lo que pusimos en app/db.py
       ORACLE_USER: APP_USER
       ORACLE_PASSWORD: app_password
-      ORACLE_HOST: oracle-db    # 👈 IMPORTANTE: nombre del servicio, NO localhost
+      ORACLE_HOST: oracle-db   # nombre del servicio, NO localhost
       ORACLE_PORT: "1521"
-      ORACLE_SERVICE: XEPDB1     # o APPDB si usas ese
+      ORACLE_SERVICE: XEPDB1   # o APPDB si usas ese
     ports:
       - "8000:8000"
+    develop:
+      watch:
+        # Si cambian dependencias, reconstruye la imagen del backend
+        - path: ./Backend/requirements.txt
+          action: rebuild
+        # Si cambia el código, lo sincroniza dentro del contenedor en /app
+        - path: ./Backend
+          target: /app
+          action: sync
 
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile   # tu Dockerfile de dev con npm run dev
+    container_name: frontend
     depends_on:
       - backend
     ports:
       - "5173:5173"
-
+    develop:
+      watch:
+        # Si cambian dependencias del front, reconstruye
+        - path: ./frontend/package.json
+          action: rebuild
+        # Si cambia código del front, lo sincroniza dentro del contenedor
+        - path: ./frontend
+          target: /app
+          action: sync
 
 volumes:
   oracle-data:
