@@ -1,0 +1,43 @@
+version: "3.9"
+
+services:
+  oracle-db:
+    image: gvenzl/oracle-xe:21-slim
+    container_name: oracle-db
+    environment:
+      ORACLE_PASSWORD: mypassword
+      ORACLE_DATABASE: APPDB
+    ports:
+      - "11521:1521"          # desde tu PC -> contenedor
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    container_name: backend
+    depends_on:
+      - oracle-db
+    environment:
+      # Estos deben cuadrar con lo que pusimos en app/db.py
+      ORACLE_USER: APP_USER
+      ORACLE_PASSWORD: app_password
+      ORACLE_HOST: oracle-db    # 👈 IMPORTANTE: nombre del servicio, NO localhost
+      ORACLE_PORT: "1521"
+      ORACLE_SERVICE: XEPDB1     # o APPDB si usas ese
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+
+
+volumes:
+  oracle-data:
