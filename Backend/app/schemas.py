@@ -35,31 +35,36 @@ class SedeRead(BaseModel):
 # Aula: incluimos campos de ambas variantes 
 class AulaCreate(BaseModel):
     id_aula: int
+    nombre_aula: Optional[str] = None
     grado: Optional[str] = None
-    nombre_aula: str
     id_sede: int
-    id_tutor: Optional[int] = None
-    id_programa: Optional[int] = None
+    nombre_sede: Optional[str] = None
     id_institucion: int
-    capacidad: Optional[int] = None
+    nombre_institucion: Optional[str] = None
+    id_programa: int
+    id_tutor: Optional[int] = None
 
 class AulaUpdate(BaseModel):
     id_aula: int
     nombre_aula: Optional[str] = None
     grado: Optional[str] = None
-    id_sede: Optional[int] = None
+    id_sede: int
+    nombre_sede: Optional[str] = None
+    id_institucion: int
+    nombre_institucion: Optional[str] = None
+    id_programa: int
     id_tutor: Optional[int] = None
-    id_programa: Optional[int] = None
-    id_institucion: Optional[int] = None
 
 class AulaResponse(AulaCreate):
     id_aula: int
     nombre_aula: Optional[str] = None
     grado: Optional[str] = None
-    capacidad: Optional[int] = None
-    ubicacion: Optional[str] = None
     id_sede: int
+    nombre_sede: Optional[str] = None
     id_institucion: int
+    nombre_institucion: Optional[str] = None
+    id_programa: Optional[int] = None
+    id_tutor: Optional[int] = None
     
 
 # -----------------
@@ -95,21 +100,39 @@ class AsignacionTutorCreate(BaseModel):
     fecha_fin: Optional[str] = None
 
 class EstudianteCreate(BaseModel):
+    id_estudiante: int
+    tipo_documento: Optional[str] = None
+    nombre: str
+    grado: Optional[str] = None
+    score_inicial: Optional[float] = None
+    id_aula: Optional[int] = None
+    id_sede: Optional[int] = None
+    id_institucion: Optional[int] = None
+
+class EstudianteRead(BaseModel):
+    id_estudiante: int
     tipo_documento: Optional[str] = None
     nombre: str
     grado: Optional[str] = None
     score_inicial: Optional[float] = None
     score_final: Optional[float] = None
     id_aula: Optional[int] = None
-
-class EstudianteRead(BaseModel):
+    id_sede: Optional[int] = None
+    id_institucion: Optional[int] = None
+    
+class EstudianteInfoRead(BaseModel):
     id_estudiante: int
-    tipo_documento: Optional[str]
+    tipo_documento: Optional[str] = None
     nombre: str
-    grado: Optional[str]
-    score_inicial: Optional[float]
-    score_final: Optional[float]
-    id_aula: Optional[int]
+    grado: Optional[str] = None
+    score_inicial: Optional[int] = None
+    score_final: Optional[int] = None
+    id_aula: Optional[int] = None
+    nombre_aula: Optional[str] = None
+    id_sede: Optional[int] = None
+    nombre_sede: Optional[str] = None
+    id_institucion: Optional[int] = None
+    nombre_institucion: Optional[str] = None
 
 class TutorListItem(BaseModel):
     id_tutor: int

@@ -120,7 +120,7 @@ export default function GestionPersonal() {
   );
 
   const handleVerDetalles = () => {
-    if (user.rol === "ADMINISTRATIVO") {
+    if (user?.rol === "ADMINISTRATIVO") {
       toast.error("No es posible continuar con esta acción debido a tu rol.");
       return;
     }
@@ -128,28 +128,21 @@ export default function GestionPersonal() {
   };
 
   // añadir nueva carta de tutor (nuevo slot)
-  const handleAddTutorCard = () => {
-    setTutorCards((prev) => {
-      const newId = prev.length > 0 ? Math.max(...prev) + 1 : 0;
-      const next = [...prev, newId];
+  const handleAddTutorCard = async () => {
+    const payload = { id_persona: null };
+    try {
+      const response = await fetch("http://127.0.0.1:8000/tutores/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const newTutor = await response.json() as Tutor
+      const newTutorId = newTutor.id_tutor
 
-      // 👇 AQUÍ llamamos al backend para crear un NUEVO TUTOR / SLOT (fire-and-forget)
-      const payload = { id_persona: null };
-      (async () => {
-        try {
-          await fetch("http://127.0.0.1:8000/tutores/", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-          // Opcional: refrescar la lista de tutores llamando a getTutors()
-        } catch (err) {
-          console.error("Error creando slot de tutor:", err);
-        }
-      })();
-
-      return next;
-    });
+      setTutorCards((prev) => ([...prev, newTutorId]))
+    } catch (err) {
+      console.error("Error creando slot de tutor:", err);
+    }
   };
 
   // borrar una carta de tutor
@@ -414,7 +407,7 @@ export default function GestionPersonal() {
               <CardHeader className="flex flex-row items-start justify-between space-y-0">
                 <div>
                   <CardTitle className="text-lg">
-                    Tutor {index + 1}
+                    Tutor {cardId}
                   </CardTitle>
                   {persona && (
                     <p className="text-sm text-muted-foreground">

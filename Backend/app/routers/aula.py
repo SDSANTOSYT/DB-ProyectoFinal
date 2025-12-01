@@ -26,19 +26,30 @@ def listar_aulas(limit: int = 500):
         logger.info("Listando todas las aulas")
 
         cur.execute("""
-            SELECT ID_AULA, CODIGO_AULA, GRADO, CAPACIDAD, UBICACION, ID_SEDE, ID_INSTITUCION
-            FROM AULA 
+            SELECT ID_AULA, NOMBRE_AULA, GRADO, s.ID_SEDE, s.NOMBRE_SEDE, i.ID_INSTITUCION, i.NOMBRE, ID_PROGRAMA, ID_TUTOR
+            FROM AULA a
+            JOIN sede s ON a.id_sede = s.id_sede
+            JOIN institucion i ON i.id_institucion = a.id_institucion
             WHERE ROWNUM <= :1
             ORDER BY ID_AULA
         """, (limit,))
 
         rows = cur.fetchall()
-        cols = [col[0].lower() for col in cur.description]
-        res = [dict(zip(cols, row)) for row in rows]
-
-        # Normalizar nombres a los esperados por Pydantic (minusculas/underscore)
-        # ya vienen id_aula, codigo_aula, grado, capacidad, ubicacion, id_sede, id_institucion
-        return res
+        
+        return [
+            {
+                "id_aula": r[0],
+                "nombre": r[1],
+                "grado": r[2],
+                "id_sede": r[3],
+                "nombre_sede": r[4],
+                "id_institucion": r[5],
+                "nombre_institucion": r[6],
+                "id_programa": r[7],
+                "id_tutor": r[8],
+            } 
+            for r in rows
+        ]
 
     except oracledb.DatabaseError as e:
         logger.error(f"Error de base de datos al listar aulas: {str(e)}")

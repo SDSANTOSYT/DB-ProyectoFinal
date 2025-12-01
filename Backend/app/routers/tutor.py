@@ -221,7 +221,7 @@ def asignar_persona_a_tutor(id_tutor: int, payload: TutorAssignRequest):
 
 
 # 10) Crear tutor 
-@router.post("/", status_code=201)
+@router.post("/", status_code=201, response_model=TutorListItem)
 def crear_tutor(payload: TutorCreate):
     conn = get_conn(); cur = conn.cursor()
     try:

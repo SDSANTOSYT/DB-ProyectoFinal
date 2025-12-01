@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -35,28 +35,84 @@ import {
   MoveRight,
   AlertCircle,
   CheckCircle,
+  NotebookPen,
 } from 'lucide-react';
-import {
-  estudiantes,
-  aulas,
-  getAulaById,
-  getSedeById,
-  getInstitucionById,
-} from '../../lib/mockData';
 import { toast } from 'sonner@2.0.3';
+import type { Aula, AulaInfo, Estudiante } from '../../lib/types';
 
 export default function GestionEstudiantes() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterGrado, setFilterGrado] = useState<string>('all');
   const [openDialog, setOpenDialog] = useState(false);
   const [openMoveDialog, setOpenMoveDialog] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<number | null>(null);
   const [targetAula, setTargetAula] = useState<string>('');
+  const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
+  const [aulas, setAulas] = useState<Aula[]>([]);
+
+  const [formData, setFormData] = useState({
+    id_estudiante: '',
+    tipo_documento: '',
+    nombre: '',
+    grado: '',
+    score_inicial: '',
+    aula: {} as AulaInfo
+  });
+
+  const getEstudiantes = async () => {
+    const url = `http://127.0.0.1:8000/estudiantes/`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!response.ok) {
+      console.log(response.statusText);
+      return [];
+    }
+
+    const estudiantesData = await response.json();
+    return estudiantesData as Estudiante[];
+  }
+
+  const getAulas = async () => {
+    const url = `http://127.0.0.1:8000/aulas/`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!response.ok) {
+      console.log(response.statusText);
+      return [];
+    }
+
+    const aulasData = await response.json();
+    return aulasData as Aula[];
+  }
+
+  useEffect(() => {
+    const obtenerEstudiantes = async () => {
+      const data = await getEstudiantes();
+      setEstudiantes(data);
+    };
+    obtenerEstudiantes();
+  }, []);
+
+  useEffect(() => {
+    const obtenerAulas = async () => {
+      const data = await getAulas();
+      setAulas(data);
+    };
+    obtenerAulas();
+  }, []);
 
   const filteredEstudiantes = estudiantes.filter((estudiante) => {
     const matchesSearch =
       estudiante.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      estudiante.documento.includes(searchTerm);
+      estudiante.id_estudiante.toString().includes(searchTerm);
 
     const matchesGrado =
       filterGrado === 'all' || estudiante.grado === filterGrado;
@@ -64,17 +120,44 @@ export default function GestionEstudiantes() {
     return matchesSearch && matchesGrado;
   });
 
-  const handleCreateEstudiante = (e: React.FormEvent) => {
+  const handleCreateEstudiante = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const nuevoEstudiante = {
+      id_estudiante: formData.id_estudiante,
+      tipo_documento: formData.tipo_documento,
+      nombre: formData.nombre,
+      grado: formData.grado,
+      score_inicial: formData.score_inicial,
+      id_aula: formData.aula.id_aula,
+      id_sede: formData.aula.id_sede,
+      id_institucion: formData.aula.id_institucion
+    }
+    const url = `http://127.0.0.1:8000/estudiantes/`
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(nuevoEstudiante)
+    });
+
+    if (!response.ok) {
+      return
+    }
+
+    const estudiantesData = await getEstudiantes()
+
+    setEstudiantes(estudiantesData)
+
     toast.success('Estudiante matriculado exitosamente');
     setOpenDialog(false);
   };
 
   const handleMoveEstudiante = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const student = estudiantes.find((e) => e.id === selectedStudent);
-    const newAula = aulas.find((a) => a.id === targetAula);
+
+    const student = estudiantes.find((e) => e.id_estudiante === selectedStudent);
+    const newAula = aulas.find((a) => a.id_aula.toString() === targetAula);
 
     if (student && newAula && student.grado !== newAula.grado) {
       toast.error('El estudiante no puede moverse a un aula de diferente grado');
@@ -85,6 +168,16 @@ export default function GestionEstudiantes() {
     setOpenMoveDialog(false);
     setSelectedStudent(null);
     setTargetAula('');
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    if (!(id === 'score_inicial' && Number(value) > 100)) {
+      setFormData(prev => ({
+        ...prev,
+        [id]: value
+      }));
+    }
   };
 
   const getCompatibleAulas = (studentGrado: string) => {
@@ -121,26 +214,51 @@ export default function GestionEstudiantes() {
               </DialogHeader>
               <form onSubmit={handleCreateEstudiante} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="est-nombre">Nombre Completo</Label>
+                  <Label htmlFor="nombre">Nombre Completo</Label>
                   <Input
-                    id="est-nombre"
+                    id="nombre"
                     placeholder="Ej: Juan Pérez"
+                    value={formData.nombre}
+                    onChange={handleInputChange}
                     required
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="est-documento">Documento</Label>
+                    <Label htmlFor="id_estudiante">Documento</Label>
                     <Input
-                      id="est-documento"
+                      id="id_estudiante"
                       placeholder="1001234567"
+                      type='number'
+                      value={formData.id_estudiante}
+                      onChange={handleInputChange}
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="est-grado">Grado</Label>
-                    <Select required>
-                      <SelectTrigger id="est-grado">
+                    <Label htmlFor="tipo_documento">Tipo de documento</Label>
+                    <Select
+                      value={formData.tipo_documento}
+                      onValueChange={(value: string) => { setFormData(prev => ({ ...prev, tipo_documento: value })) }}
+                      required>
+                      <SelectTrigger id="tipo_documento">
+                        <SelectValue placeholder="Seleccionar" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="CC">CC</SelectItem>
+                        <SelectItem value="TI">TI</SelectItem>
+                        <SelectItem value="CE">CE</SelectItem>
+                        <SelectItem value="PP">CE</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="grado">Grado</Label>
+                    <Select
+                      value={formData.grado}
+                      onValueChange={(value: string) => { setFormData(prev => ({ ...prev, grado: value })) }}
+                      required>
+                      <SelectTrigger id="grado">
                         <SelectValue placeholder="Seleccionar" />
                       </SelectTrigger>
                       <SelectContent>
@@ -153,20 +271,27 @@ export default function GestionEstudiantes() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="est-aula">Aula</Label>
-                  <Select required>
-                    <SelectTrigger id="est-aula">
+                  <Label htmlFor="aula">Aula</Label>
+                  <Select
+                    value={JSON.stringify(formData.aula)}
+                    onValueChange={(value: string) => { setFormData(prev => ({ ...prev, aula: JSON.parse(value) })) }}
+                    required>
+                    <SelectTrigger id="aula">
                       <SelectValue placeholder="Seleccionar aula" />
                     </SelectTrigger>
                     <SelectContent>
                       {aulas.map((aula) => {
-                        const sede = getSedeById(aula.sedeId);
-                        const institucion = sede
-                          ? getInstitucionById(sede.institucionId)
-                          : null;
+                        const institucion = { id: aula.id_institucion, nombre: aula.nombre_institucion }
                         return (
-                          <SelectItem key={aula.id} value={aula.id}>
-                            {aula.nombre} - {institucion?.nombre} (Grado {aula.grado}°)
+                          <SelectItem
+                            key={`${aula.id_aula}-${aula.id_sede}-${aula.id_institucion}`}
+                            value={JSON.stringify({
+                              id_aula: aula.id_aula,
+                              id_sede: aula.id_sede,
+                              id_institucion: aula.id_institucion
+                            })}
+                          >
+                            {aula.id_aula} - {institucion.nombre}: {aula.nombre_sede} (Grado {aula.grado}°)
                           </SelectItem>
                         );
                       })}
@@ -174,13 +299,15 @@ export default function GestionEstudiantes() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="est-score">Score Inicial</Label>
+                  <Label htmlFor="score_inicial">Score Inicial</Label>
                   <Input
-                    id="est-score"
+                    id="score_inicial"
                     type="number"
                     placeholder="0-100"
                     min="0"
                     max="100"
+                    value={formData.score_inicial}
+                    onChange={handleInputChange}
                     required
                   />
                 </div>
@@ -254,38 +381,46 @@ export default function GestionEstudiantes() {
             </TableHeader>
             <TableBody>
               {filteredEstudiantes.map((estudiante) => {
-                const aula = getAulaById(estudiante.aulaId);
-                const sede = aula ? getSedeById(aula.sedeId) : null;
-                const institucion = sede
-                  ? getInstitucionById(sede.institucionId)
-                  : null;
 
                 return (
-                  <TableRow key={estudiante.id}>
+                  <TableRow key={estudiante.id_estudiante}>
                     <TableCell>{estudiante.nombre}</TableCell>
-                    <TableCell>{estudiante.documento}</TableCell>
+                    <TableCell>{estudiante.id_estudiante}</TableCell>
                     <TableCell>
                       <Badge variant="outline">{estudiante.grado}°</Badge>
                     </TableCell>
-                    <TableCell>{aula?.nombre || 'N/A'}</TableCell>
+                    <TableCell>{estudiante.nombre_aula || 'N/A'}</TableCell>
                     <TableCell>
                       <div>
-                        <p className="text-sm">{institucion?.nombre}</p>
+                        <p className="text-sm">{estudiante.nombre_institucion}</p>
                         <p className="text-xs text-muted-foreground">
-                          {sede?.nombre}
+                          {estudiante.nombre_sede}
                         </p>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary">{estudiante.scoreInicial}</Badge>
+                      <Badge variant="secondary">{estudiante.score_inicial}</Badge>
                     </TableCell>
                     <TableCell>
-                      {estudiante.scoreFinal ? (
-                        <Badge>{estudiante.scoreFinal}</Badge>
+                      {estudiante.score_final ? (
+                        <Badge>{estudiante.score_final}</Badge>
                       ) : (
-                        <span className="text-muted-foreground text-sm">
-                          Pendiente
-                        </span>
+                        <div>
+                          <span className="text-muted-foreground text-sm">
+                            Pendiente
+                          </span>
+                          <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedStudent(estudiante.id_estudiante);
+                            setOpenMoveDialog(true);
+                          }}
+                          >
+                            <NotebookPen className="w-4 h-4 mr-1" />
+                            Calificar
+                          </Button>
+                        </div>
                       )}
                     </TableCell>
                     <TableCell>
@@ -293,7 +428,7 @@ export default function GestionEstudiantes() {
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          setSelectedStudent(estudiante.id);
+                          setSelectedStudent(estudiante.id_estudiante);
                           setOpenMoveDialog(true);
                         }}
                       >
@@ -326,8 +461,8 @@ export default function GestionEstudiantes() {
           </DialogHeader>
           <form onSubmit={handleMoveEstudiante} className="space-y-4">
             {selectedStudent && (() => {
-              const student = estudiantes.find((e) => e.id === selectedStudent);
-              const currentAula = student ? getAulaById(student.aulaId) : null;
+              const student = estudiantes.find((e) => e.id_estudiante === selectedStudent);
+              const currentAula = { id: student?.id_aula, nombre: student?.nombre_aula }
               const compatibleAulas = student
                 ? getCompatibleAulas(student.grado)
                 : [];
@@ -357,14 +492,11 @@ export default function GestionEstudiantes() {
                       </SelectTrigger>
                       <SelectContent>
                         {compatibleAulas
-                          .filter((a) => a.id !== student?.aulaId)
+                          .filter((a) => a.id_aula !== currentAula?.id)
                           .map((aula) => {
-                            const sede = getSedeById(aula.sedeId);
-                            const institucion = sede
-                              ? getInstitucionById(sede.institucionId)
-                              : null;
+                            const institucion = { id: aula.id_institucion, nombre: aula.nombre_institucion }
                             return (
-                              <SelectItem key={aula.id} value={aula.id}>
+                              <SelectItem key={aula.id_aula} value={aula.id_aula}>
                                 {aula.nombre} - {institucion?.nombre}
                               </SelectItem>
                             );
@@ -374,11 +506,9 @@ export default function GestionEstudiantes() {
                   </div>
 
                   {targetAula && (() => {
-                    const newAula = aulas.find((a) => a.id === targetAula);
-                    const newSede = newAula ? getSedeById(newAula.sedeId) : null;
-                    const newInstitucion = newSede
-                      ? getInstitucionById(newSede.institucionId)
-                      : null;
+                    const newAula = aulas.find((a) => a.id_aula.toString() === targetAula);
+                    const newSede = { id: newAula?.id_aula, nombre: newAula?.nombre };
+                    const newInstitucion = { id: newAula?.id_institucion, nombre: newAula?.nombre_institucion }
 
                     return (
                       <Alert>
@@ -387,7 +517,7 @@ export default function GestionEstudiantes() {
                           <p>Aula destino: {newAula?.nombre}</p>
                           <p>Institución: {newInstitucion?.nombre}</p>
                           <p>Sede: {newSede?.nombre}</p>
-                          <p>Programa: {newAula?.programa}</p>
+                          <p>Programa: {!newAula ? 'SIN PROGRAMA' : newAula.id_programa === 1 ? 'INSIDECLASSROOM' : 'OUTSIDECLASSROOM'}</p>
                         </AlertDescription>
                       </Alert>
                     );

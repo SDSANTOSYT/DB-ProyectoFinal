@@ -91,8 +91,6 @@
 }
 
 @theme inline {
-  --font-sans: "Georgia", "Times New Roman", "Garamond", serif;
-  --font-mono: "Courier New", "Courier", monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
