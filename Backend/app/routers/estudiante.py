@@ -14,7 +14,7 @@ router = APIRouter(prefix="/estudiantes", tags=["estudiantes"])
 
 
 @router.post("/", response_model=EstudianteRead)
-def create_estudiante(payload: EstudianteCreate, user=Depends(get_current_user)):
+def create_estudiante(payload: EstudianteCreate):
     """
     Crea un nuevo estudiante en el sistema.
     """
@@ -108,7 +108,7 @@ def create_estudiante(payload: EstudianteCreate, user=Depends(get_current_user))
 
 
 @router.get("/{id_estudiante}", response_model=EstudianteRead)
-def get_estudiante(id_estudiante: int, user=Depends(get_current_user)):
+def get_estudiante(id_estudiante: int):
     """
     Obtiene un estudiante por su ID.
     """
@@ -167,7 +167,7 @@ def get_estudiante(id_estudiante: int, user=Depends(get_current_user)):
 
 
 @router.get("/", response_model=List[EstudianteRead])
-def list_estudiantes(limit: int = 100, user=Depends(get_current_user)):
+def list_estudiantes(limit: int = 100):
     """
     Lista estudiantes (mantiene la misma firma del original).
     """
