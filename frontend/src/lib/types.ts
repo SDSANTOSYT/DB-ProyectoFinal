@@ -6,6 +6,7 @@ export interface AulaInfo{
   id_aula: number
   id_sede: number
   id_institucion: number
+  grado: string
 }
 
 export interface Aula {

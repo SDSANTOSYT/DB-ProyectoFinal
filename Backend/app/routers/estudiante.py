@@ -196,9 +196,9 @@ def list_estudiantes(limit: int = 100):
                 e.score_final, a.id_aula, a.nombre_aula, s.id_sede, s.nombre_sede, 
                 i.id_institucion, i.nombre
             FROM estudiante e 
-            JOIN institucion i ON e.id_institucion = i.id_institucion 
-            JOIN sede s ON e.id_sede = s.id_sede
-            JOIN aula a ON a.id_aula = e.id_aula
+            LEFT JOIN institucion i ON e.id_institucion = i.id_institucion 
+            LEFT JOIN sede s ON e.id_sede = s.id_sede
+            LEFT JOIN aula a ON a.id_aula = e.id_aula
             FETCH FIRST :1 ROWS ONLY
         """, (limit,))
         
