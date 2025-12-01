@@ -134,6 +134,16 @@ class EstudianteInfoRead(BaseModel):
     id_institucion: Optional[int] = None
     nombre_institucion: Optional[str] = None
 
+class CambiarAulaRequest(BaseModel):
+    id_aula: int
+    id_sede: int
+    id_institucion: int
+    
+
+class ActualizarScoreFinalRequest(BaseModel):
+    score_final: float
+    
+
 class TutorListItem(BaseModel):
     id_tutor: int
     id_persona: Optional[int] = None

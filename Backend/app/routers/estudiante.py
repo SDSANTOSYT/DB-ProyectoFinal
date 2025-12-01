@@ -4,7 +4,7 @@ from typing import List, Optional
 import oracledb
 import logging
 from ..db import get_conn
-from ..schemas import EstudianteCreate, EstudianteInfoRead, EstudianteRead
+from ..schemas import ActualizarScoreFinalRequest, CambiarAulaRequest, EstudianteCreate, EstudianteInfoRead, EstudianteRead
 from ..utils import get_current_user
 
 # Configurar logging
@@ -231,6 +231,240 @@ def list_estudiantes(limit: int = 100):
         
     except Exception as e:
         logger.error(f"Error inesperado al listar estudiantes: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Error interno del servidor"
+        )
+        
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+@router.put("/{id_estudiante}/cambiar-aula", response_model=EstudianteRead)
+def cambiar_aula_estudiante(id_estudiante: int, payload: CambiarAulaRequest):
+     
+
+    conn = None
+    cur = None
+    
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        
+        logger.info(f"Cambiando estudiante {id_estudiante} a aula {payload.id_aula}")
+        
+        # Verificar que el estudiante existe
+        cur.execute("""
+            SELECT id_estudiante 
+            FROM estudiante 
+            WHERE id_estudiante = :1
+        """, (id_estudiante,))
+        
+        if not cur.fetchone():
+            logger.warning(f"Estudiante {id_estudiante} no encontrado")
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Estudiante con ID {id_estudiante} no encontrado"
+            )
+        
+        # Verificar que la combinación aula-sede-institución existe
+        cur.execute("""
+            SELECT id_aula 
+            FROM aula 
+            WHERE id_aula = :1 AND id_sede = :2
+        """, (payload.id_aula, payload.id_sede))
+        
+        if not cur.fetchone():
+            logger.warning(f"Aula {payload.id_aula} en sede {payload.id_sede} no encontrada")
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Aula {payload.id_aula} no existe en la sede {payload.id_sede}"
+            )
+        
+        # Actualizar el estudiante
+        cur.execute("""
+            UPDATE estudiante 
+            SET id_aula = :1, id_sede = :2, id_institucion = :3
+            WHERE id_estudiante = :4
+        """, (payload.id_aula, payload.id_sede, payload.id_institucion, id_estudiante))
+        
+        if cur.rowcount == 0:
+            raise HTTPException(
+                status_code=500,
+                detail="No se pudo actualizar el estudiante"
+            )
+        
+        conn.commit()
+        
+        logger.info(f"Estudiante {id_estudiante} cambiado exitosamente a aula {payload.id_aula}")
+        
+        # Obtener y devolver el estudiante actualizado
+        cur.execute("""
+            SELECT id_estudiante, tipo_documento, nombre, grado, 
+                   score_inicial, score_final, id_aula, id_sede, id_institucion
+            FROM estudiante 
+            WHERE id_estudiante = :1
+        """, (id_estudiante,))
+        
+        r = cur.fetchone()
+        
+        if not r:
+            raise HTTPException(
+                status_code=500,
+                detail="Error al recuperar el estudiante actualizado"
+            )
+        
+        return {
+            "id_estudiante": r[0],
+            "tipo_documento": r[1],
+            "nombre": r[2],
+            "grado": r[3],
+            "score_inicial": r[4],
+            "score_final": r[5],
+            "id_aula": r[6],
+            "id_sede": r[7],
+            "id_institucion": r[8]
+        }
+        
+    except HTTPException:
+        if conn:
+            conn.rollback()
+        raise
+        
+    except oracledb.IntegrityError as e:
+        if conn:
+            conn.rollback()
+        logger.error(f"Error de integridad al cambiar aula: {str(e)}")
+        raise HTTPException(
+            status_code=400,
+            detail="Error de integridad de datos. Verifique que el aula, sede e institución existen y están relacionadas correctamente."
+        )
+        
+    except oracledb.DatabaseError as e:
+        if conn:
+            conn.rollback()
+        logger.error(f"Error de base de datos al cambiar aula: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Error en la base de datos"
+        )
+        
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        logger.error(f"Error inesperado al cambiar aula: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Error interno del servidor"
+        )
+        
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+@router.put("/{id_estudiante}/score-final", response_model=EstudianteRead)
+def actualizar_score_final(id_estudiante: int, payload: ActualizarScoreFinalRequest):
+    """
+    Actualiza el score final de un estudiante.
+    """
+    conn = None
+    cur = None
+    
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        
+        logger.info(f"Actualizando score final del estudiante {id_estudiante} a {payload.score_final}")
+        
+        # Verificar que el estudiante existe
+        cur.execute("""
+            SELECT id_estudiante 
+            FROM estudiante 
+            WHERE id_estudiante = :1
+        """, (id_estudiante,))
+        
+        if not cur.fetchone():
+            logger.warning(f"Estudiante {id_estudiante} no encontrado")
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Estudiante con ID {id_estudiante} no encontrado"
+            )
+        
+        # Validar que el score_final sea válido (opcional, según tus reglas de negocio)
+        if payload.score_final < 0:
+            raise HTTPException(
+                status_code=400,
+                detail="El score final no puede ser negativo"
+            )
+        
+        # Actualizar el score final
+        cur.execute("""
+            UPDATE estudiante 
+            SET score_final = :1
+            WHERE id_estudiante = :2
+        """, (payload.score_final, id_estudiante))
+        
+        if cur.rowcount == 0:
+            raise HTTPException(
+                status_code=500,
+                detail="No se pudo actualizar el score final"
+            )
+        
+        conn.commit()
+        
+        logger.info(f"Score final del estudiante {id_estudiante} actualizado exitosamente")
+        
+        # Obtener y devolver el estudiante actualizado
+        cur.execute("""
+            SELECT id_estudiante, tipo_documento, nombre, grado, 
+                   score_inicial, score_final, id_aula, id_sede, id_institucion
+            FROM estudiante 
+            WHERE id_estudiante = :1
+        """, (id_estudiante,))
+        
+        r = cur.fetchone()
+        
+        if not r:
+            raise HTTPException(
+                status_code=500,
+                detail="Error al recuperar el estudiante actualizado"
+            )
+        
+        return {
+            "id_estudiante": r[0],
+            "tipo_documento": r[1],
+            "nombre": r[2],
+            "grado": r[3],
+            "score_inicial": r[4],
+            "score_final": r[5],
+            "id_aula": r[6],
+            "id_sede": r[7],
+            "id_institucion": r[8]
+        }
+        
+    except HTTPException:
+        if conn:
+            conn.rollback()
+        raise
+        
+    except oracledb.DatabaseError as e:
+        if conn:
+            conn.rollback()
+        logger.error(f"Error de base de datos al actualizar score final: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Error en la base de datos"
+        )
+        
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        logger.error(f"Error inesperado al actualizar score final: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail="Error interno del servidor"
