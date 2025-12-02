@@ -355,10 +355,11 @@ def borrar_aula(id_aula: int):
         if conn:
             conn.close()
 
-@router.put("/{id_aula}/asignar-tutor", response_model=AulaResponse)
-def asignar_tutor_a_aula(id_aula: int, payload: AsignarTutorRequest):
+@router.put("/asignar-tutor", response_model=AulaResponse)
+def asignar_tutor_a_aula(payload: AsignarTutorRequest):
     """
     Asigna o desasigna un tutor a un aula.
+    Requiere la clave compuesta completa del aula (id_aula, id_sede, id_institucion).
     - Si id_tutor tiene un valor: asigna ese tutor al aula
     - Si id_tutor es null: desasigna cualquier tutor del aula
     """
@@ -369,23 +370,28 @@ def asignar_tutor_a_aula(id_aula: int, payload: AsignarTutorRequest):
         conn = get_conn()
         cur = conn.cursor()
 
-        logger.info(f"Procesando asignación de tutor para aula {id_aula}")
+        logger.info(f"Procesando asignación de tutor para aula {payload.id_aula}")
 
-        # Verificar que el aula existe
+        # Verificar que el aula existe con la clave compuesta completa
         cur.execute("""
             SELECT ID_AULA, ID_SEDE, ID_INSTITUCION 
             FROM AULA 
-            WHERE ID_AULA = :1
-        """, (id_aula,))
+            WHERE ID_AULA = :1 
+            AND ID_SEDE = :2 
+            AND ID_INSTITUCION = :3
+        """, (payload.id_aula, payload.id_sede, payload.id_institucion))
         
         aula = cur.fetchone()
         if not aula:
-            logger.warning(f"Aula {id_aula} no encontrada")
-            raise HTTPException(status_code=404, detail="Aula no encontrada")
+            logger.warning(f"Aula {payload.id_aula} en sede {payload.id_sede} e institución {payload.id_institucion} no encontrada")
+            raise HTTPException(
+                status_code=404, 
+                detail="Aula no encontrada con la combinación de id_aula, id_sede e id_institucion proporcionada"
+            )
 
         # Si se proporciona un id_tutor, verificar que existe
         if payload.id_tutor is not None:
-            logger.info(f"Asignando tutor {payload.id_tutor} al aula {id_aula}")
+            logger.info(f"Asignando tutor {payload.id_tutor} al aula {payload.id_aula}")
             
             cur.execute("""
                 SELECT ID_TUTOR 
@@ -397,14 +403,16 @@ def asignar_tutor_a_aula(id_aula: int, payload: AsignarTutorRequest):
                 logger.warning(f"Tutor {payload.id_tutor} no encontrado")
                 raise HTTPException(status_code=404, detail="Tutor no encontrado")
         else:
-            logger.info(f"Desasignando tutor del aula {id_aula}")
+            logger.info(f"Desasignando tutor del aula {payload.id_aula}")
 
-        # Actualizar el aula (asignar o desasignar según el caso)
+        # Actualizar el aula usando la clave compuesta
         cur.execute("""
             UPDATE AULA 
             SET ID_TUTOR = :1 
-            WHERE ID_AULA = :2
-        """, (payload.id_tutor, id_aula))
+            WHERE ID_AULA = :2 
+            AND ID_SEDE = :3 
+            AND ID_INSTITUCION = :4
+        """, (payload.id_tutor, payload.id_aula, payload.id_sede, payload.id_institucion))
 
         if cur.rowcount == 0:
             raise HTTPException(
@@ -422,10 +430,12 @@ def asignar_tutor_a_aula(id_aula: int, payload: AsignarTutorRequest):
             SELECT ID_AULA, NOMBRE_AULA, GRADO, s.ID_SEDE, s.NOMBRE_SEDE, 
                    i.ID_INSTITUCION, i.NOMBRE, ID_PROGRAMA, ID_TUTOR
             FROM AULA a
-            JOIN sede s ON a.id_sede = s.id_sede
-            JOIN institucion i ON i.id_institucion = a.id_institucion
-            WHERE a.ID_AULA = :1
-        """, (id_aula,))
+            JOIN SEDE s ON a.id_sede = s.id_sede AND a.id_institucion = s.id_institucion
+            JOIN INSTITUCION i ON i.id_institucion = a.id_institucion
+            WHERE a.ID_AULA = :1 
+            AND a.ID_SEDE = :2 
+            AND a.ID_INSTITUCION = :3
+        """, (payload.id_aula, payload.id_sede, payload.id_institucion))
         
         r = cur.fetchone()
         
@@ -458,7 +468,7 @@ def asignar_tutor_a_aula(id_aula: int, payload: AsignarTutorRequest):
         logger.error(f"Error de integridad al asignar/desasignar tutor: {str(e)}")
         raise HTTPException(
             status_code=400,
-            detail="Error de integridad de datos"
+            detail="Error de integridad de datos. Verifique que la combinación de aula, sede e institución existe."
         )
 
     except oracledb.DatabaseError as e:
