@@ -1,15 +1,16 @@
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
+import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../ui/select';
+} from "../ui/select";
 import {
   Dialog,
   DialogContent,
@@ -17,7 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '../ui/dialog';
+} from "../ui/dialog";
 import {
   Table,
   TableBody,
@@ -25,25 +26,213 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '../ui/table';
-import { Badge } from '../ui/badge';
-import { Plus, Search, Mail, Phone, School } from 'lucide-react';
-import { tutores, getAulasByTutor, getSedeById, getInstitucionById } from '../../lib/mockData';
-import { toast } from 'sonner@2.0.3';
+} from "../ui/table";
+import { Badge } from "../ui/badge";
+import { Plus, Search, Mail, Phone, Trash2 } from "lucide-react";
+import { toast } from "sonner@2.0.3";
+import type { Rol, Tutor, User } from "../../lib/types";
+import { useAuth } from "../../contexts/AuthContext";
 
 export default function GestionPersonal() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [openDialog, setOpenDialog] = useState(false);
+  const { user } = useAuth();
 
-  const filteredTutores = tutores.filter((tutor) =>
-    tutor.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    tutor.documento.includes(searchTerm) ||
-    tutor.email.toLowerCase().includes(searchTerm.toLowerCase())
+  const [searchTerm, setSearchTerm] = useState("");
+  const [openDialog, setOpenDialog] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<Rol | string>("");
+  const [tutors, setTutors] = useState<Tutor[]>([]);
+  const [personal, setPersonal] = useState<User[]>([]);
+  // IDs de cartas (slots de tutor)
+  const [tutorCards, setTutorCards] = useState<number[]>([]);
+  // asignación personaId por cada cartaId
+  const [tutorAssignments, setTutorAssignments] = useState<
+    Record<number, string | null>
+  >({});
+
+  const navigate = useNavigate();
+
+  const getTutors = async () => {
+    const url = `http://127.0.0.1:8000/tutores/all`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!response.ok) {
+      console.log(response.statusText);
+      return [];
+    }
+
+    const tutoresData = await response.json();
+    return tutoresData as Tutor[];
+  };
+
+  const getPersonal = async () => {
+    const url = `http://127.0.0.1:8000/personas/`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!response.ok) {
+      console.log(response.statusText);
+      return [];
+    }
+
+    const personalData = await response.json();
+    return personalData as User[];
+  };
+
+  // TODO: aquí deberías traer el personal desde tu backend y hacer setPersonal(...)
+  useEffect(() => {
+    const obtenerPersonal = async () => {
+      const data = await getPersonal();
+      setPersonal(data);
+    };
+    obtenerPersonal();
+  }, []);
+
+
+  useEffect(() => {
+    const obtenerTutores = async () => {
+      const data = await getTutors();
+      setTutors(data);
+      // 👇 Si cada "tutor" del backend representa un slot, puedes inicializar las cartas aquí:
+      setTutorCards(data.map((tutor) => tutor.id_tutor));
+      const mapped = data.reduce<Record<number, string | null>>((acc, tutor) => {
+        acc[tutor.id_tutor] = String(tutor.id_persona);
+        return acc;
+      }, {})
+      setTutorAssignments(mapped)
+    };
+    obtenerTutores();
+  }, []);
+
+
+
+
+  const filteredTutores = personal.filter(
+    (persona) =>
+      persona.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      persona.id_persona.toString().includes(searchTerm) ||
+      persona.correo.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleCreateTutor = (e: React.FormEvent) => {
+  const handleVerDetalles = () => {
+    if (user?.rol === "ADMINISTRATIVO") {
+      toast.error("No es posible continuar con esta acción debido a tu rol.");
+      return;
+    }
+    navigate("/admin/usuarios");
+  };
+
+  // añadir nueva carta de tutor (nuevo slot)
+  const handleAddTutorCard = async () => {
+    const payload = { id_persona: null };
+    try {
+      const response = await fetch("http://127.0.0.1:8000/tutores/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const newTutor = await response.json() as Tutor
+      const newTutorId = newTutor.id_tutor
+
+      setTutorCards((prev) => ([...prev, newTutorId]))
+    } catch (err) {
+      console.error("Error creando slot de tutor:", err);
+    }
+  };
+
+  // borrar una carta de tutor
+  const handleDeleteTutorCard = (cardId: number) => {
+    setTutorCards((prev) => prev.filter((id) => id !== cardId));
+
+    setTutorAssignments((prev) => {
+      const updated = { ...prev };
+      delete updated[cardId];
+      return updated;
+    });
+
+    // 👇 AQUÍ deberías llamar al backend para BORRAR el tutor / slot
+    (async () => {
+      await fetch(`http://127.0.0.1:8000/tutores/${cardId}`, {
+        method: "DELETE",
+      });
+    })()
+    // Y probablemente refrescar el estado desde el backend
+  };
+
+  // asignar persona a una carta de tutor, garantizando que no se repita en otra
+  const handleSelectPersonaForCard = async (cardId: number, personaId: string) => {
+    setTutorAssignments((prev) => {
+      const updated: Record<number, string | null> = { ...prev };
+
+      // si esa persona ya estaba en otro tutor, la quitamos de ese tutor
+      Object.keys(updated).forEach((key) => {
+        const existingCardId = Number(key);
+        if (updated[existingCardId] === personaId && existingCardId !== cardId) {
+          updated[existingCardId] = null;
+          (async () => {
+            await fetch(`http://127.0.0.1:8000/tutores/${existingCardId}/desvincular-persona`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+            });
+          })()
+        }
+      });
+
+      updated[cardId] = personaId;
+
+      // 👇 AQUÍ deberías llamar al backend para guardar la ASIGNACIÓN
+      const payload = {
+        id_persona: personaId,
+      };
+      (async () => {
+        await fetch(`http://127.0.0.1:8000/tutores/${cardId}/asignar-persona`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      })()
+
+      return updated;
+    });
+  };
+
+  const handleCreatePersonal = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success('Tutor contratado exitosamente');
+
+    const form = e.currentTarget as HTMLFormElement;
+    const formData = new FormData(form);
+
+    const data = {
+      nombre: formData.get("nombre"),
+      id_persona: formData.get("documento"),
+      rol: selectedRole,
+      correo: formData.get("email"),
+    };
+
+    console.log(data);
+
+    const url = `http://127.0.0.1:8000/personas/`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error("Error Creando persona");
+    }
+
+    toast.success("Persona contratada exitosamente");
+
+    const updated = await getPersonal()
+    setPersonal(updated)
+
     setOpenDialog(false);
   };
 
@@ -53,67 +242,70 @@ export default function GestionPersonal() {
         <div>
           <h1 className="text-3xl mb-2">Gestión de Personal</h1>
           <p className="text-muted-foreground">
-            Administra tutores y asignaciones de aulas
+            Administra Personas y asignaciones de roles
           </p>
         </div>
         <Dialog open={openDialog} onOpenChange={setOpenDialog}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="w-4 h-4 mr-2" />
-              Contratar Tutor
+              Contratar Persona
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Contratar Nuevo Tutor</DialogTitle>
+              <DialogTitle>Contratar Nueva Persona</DialogTitle>
               <DialogDescription>
-                Ingresa los datos del tutor y crea su cuenta de usuario
+                Ingresa los datos de la persona
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleCreateTutor} className="space-y-4">
+            <form onSubmit={handleCreatePersonal} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="tutor-nombre">Nombre Completo</Label>
+                <Label htmlFor="persona-nombre">Nombre Completo</Label>
                 <Input
-                  id="tutor-nombre"
+                  id="persona-nombre"
+                  name="nombre"
                   placeholder="Ej: Carlos Rodríguez"
                   required
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="tutor-documento">Documento</Label>
-                  <Input
-                    id="tutor-documento"
-                    placeholder="1122334455"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="tutor-telefono">Teléfono</Label>
-                  <Input
-                    id="tutor-telefono"
-                    placeholder="3201111111"
-                    required
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="persona-documento">Documento</Label>
+                <Input
+                  id="persona-documento"
+                  name="documento"
+                  placeholder="1122334455"
+                  required
+                />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="tutor-email">Correo Electrónico</Label>
+                <Label htmlFor="persona-email">Correo Electrónico</Label>
                 <Input
-                  id="tutor-email"
+                  id="persona-email"
                   type="email"
+                  name="email"
                   placeholder="tutor@globalenglish.com"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="tutor-password">Contraseña Inicial</Label>
-                <Input
-                  id="tutor-password"
-                  type="password"
-                  placeholder="••••••••"
-                  required
-                />
+                <Label htmlFor="persona-role">Rol</Label>
+                <Select value={selectedRole} onValueChange={setSelectedRole}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar Rol" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem key="TUTOR" value="TUTOR">
+                      Tutor
+                    </SelectItem>
+                    {user?.rol === 'ADMINISTRADOR' && <SelectItem key="ADMINISTRATIVO" value="ADMINISTRATIVO">
+                      Administrativo
+                    </SelectItem>}
+                    {user?.rol === 'ADMINISTRADOR' && <SelectItem key="ADMINISTRADOR" value="ADMINISTRADOR">
+                      Administrador
+                    </SelectItem>}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex justify-end gap-2">
                 <Button
@@ -145,10 +337,10 @@ export default function GestionPersonal() {
         </CardContent>
       </Card>
 
-      {/* Tutors Table */}
+      {/* Tabla de personal */}
       <Card>
         <CardHeader>
-          <CardTitle>Tutores Registrados ({filteredTutores.length})</CardTitle>
+          <CardTitle>Personal Registrados ({filteredTutores.length})</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
@@ -157,115 +349,129 @@ export default function GestionPersonal() {
                 <TableHead>Nombre</TableHead>
                 <TableHead>Documento</TableHead>
                 <TableHead>Contacto</TableHead>
-                <TableHead>Aulas Asignadas</TableHead>
+                <TableHead>Rol</TableHead>
                 <TableHead>Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredTutores.map((tutor) => {
-                const aulasAsignadas = getAulasByTutor(tutor.id);
-
-                return (
-                  <TableRow key={tutor.id}>
-                    <TableCell>{tutor.nombre}</TableCell>
-                    <TableCell>{tutor.documento}</TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1 text-sm">
-                          <Mail className="w-3 h-3" />
-                          {tutor.email}
-                        </div>
-                        <div className="flex items-center gap-1 text-sm">
-                          <Phone className="w-3 h-3" />
-                          {tutor.telefono}
-                        </div>
+              {filteredTutores.map((persona) => (
+                <TableRow key={persona.id_persona}>
+                  <TableCell>{persona.nombre}</TableCell>
+                  <TableCell>{persona.id_persona}</TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1 text-sm">
+                        <Mail className="w-3 h-3" />
+                        {persona.correo}
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <School className="w-4 h-4" />
-                        <span>{aulasAsignadas.length} aulas</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="outline" size="sm">
-                        Ver Detalles
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {persona.rol}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleVerDetalles}
+                    >
+                      Ver Detalles
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
 
-      {/* Tutors Cards View */}
+      {/* Tutors Cards View: slots de tutor */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Tutores</h2>
+        <Button size="sm" onClick={handleAddTutorCard}>
+          <Plus className="w-4 h-4 mr-2" />
+          Añadir carta
+        </Button>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredTutores.map((tutor) => {
-          const aulasAsignadas = getAulasByTutor(tutor.id);
+        {tutorCards.map((cardId, index) => {
+          const personaId = tutorAssignments[cardId] ?? "";
+          const persona =
+            personal.find(
+              (p) => String(p.id_persona) === String(personaId)
+            ) || null;
 
           return (
-            <Card key={tutor.id}>
-              <CardHeader>
-                <CardTitle className="text-lg">{tutor.nombre}</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Doc: {tutor.documento}
-                </p>
+            <Card key={cardId}>
+              <CardHeader className="flex flex-row items-start justify-between space-y-0">
+                <div>
+                  <CardTitle className="text-lg">
+                    Tutor {cardId}
+                  </CardTitle>
+                  {persona && (
+                    <p className="text-sm text-muted-foreground">
+                      {persona.nombre} - {persona.id_persona}
+                    </p>
+                  )}
+                </div>
+
+                {/* Botón para borrar este tutor / carta */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => handleDeleteTutorCard(cardId)}
+                >
+                  <Trash2 className="w-4 h-4 text-red-500" />
+                </Button>
               </CardHeader>
+
               <CardContent>
                 <div className="space-y-3">
                   <div className="space-y-1 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Mail className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">{tutor.email}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Phone className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">{tutor.telefono}</span>
-                    </div>
-                  </div>
+                    {persona ? (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <Mail className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">
+                            {persona.correo}
+                          </span>
+                        </div>
 
-                  <div className="pt-3 border-t">
-                    <p className="text-sm mb-2">Aulas Asignadas:</p>
-                    {aulasAsignadas.length > 0 ? (
-                      <div className="space-y-2">
-                        {aulasAsignadas.map((aula) => {
-                          const sede = getSedeById(aula.sedeId);
-                          const institucion = sede
-                            ? getInstitucionById(sede.institucionId)
-                            : null;
-
-                          return (
-                            <div
-                              key={aula.id}
-                              className="p-2 bg-gray-50 rounded text-sm"
-                            >
-                              <div className="flex items-center justify-between">
-                                <span>{aula.nombre}</span>
-                                <Badge
-                                  variant={
-                                    aula.programa === 'INSIDECLASSROOM'
-                                      ? 'default'
-                                      : 'secondary'
-                                  }
-                                  className="text-xs"
-                                >
-                                  {aula.grado}°
-                                </Badge>
-                              </div>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {institucion?.nombre}
-                              </p>
-                            </div>
-                          );
-                        })}
-                      </div>
+                      </>
                     ) : (
                       <p className="text-sm text-muted-foreground">
-                        Sin aulas asignadas
+                        Ninguna persona asignada a este tutor.
                       </p>
                     )}
+                  </div>
+
+                  <div className="pt-3 border-t space-y-2">
+                    <p className="text-sm">Asignar persona a este tutor</p>
+                    <Select
+                      value={personaId}
+                      onValueChange={(value) =>
+                        handleSelectPersonaForCard(cardId, value)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar persona" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {personal.map((p) => {
+                          if (p.rol === 'TUTOR') {
+                            return (<SelectItem
+                              key={p.id_persona}
+                              value={String(p.id_persona)}
+                            >
+                              {p.nombre} - {p.id_persona}
+                            </SelectItem>)
+                          }
+                        }
+                        )}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </CardContent>

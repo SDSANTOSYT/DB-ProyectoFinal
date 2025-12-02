@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@schedule-x/events-service": "^3.4.2",
+    "temporal-polyfill": "^0.3.0"
+  }
+}

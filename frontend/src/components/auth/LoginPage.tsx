@@ -5,7 +5,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { toast } from 'sonner@2.0.3';
-import { BookOpen, Loader2 } from 'lucide-react';
+import { GraduationCap, Loader2, UserCog, Settings, School } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -29,37 +29,47 @@ export default function LoginPage() {
 
   const quickLogin = (role: string) => {
     if (role === 'admin') {
-      setEmail('admin@globalenglish.com');
-      setPassword('admin123');
+      setEmail('admin@sistema.com');
+      setPassword('3');
     } else if (role === 'administrativo') {
-      setEmail('admin2@globalenglish.com');
-      setPassword('admin123');
+      setEmail('maria.gomez@estudiantes.com');
+      setPassword('2');
     } else if (role === 'tutor') {
-      setEmail('tutor@globalenglish.com');
-      setPassword('tutor123');
+      setEmail('juan.perez@educacion.com');
+      setPassword('1');
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4">
-      <Card className="w-full max-w-md shadow-xl">
-        <CardHeader className="space-y-1 text-center">
-          <div className="flex justify-center mb-4">
-            <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-3 rounded-xl">
-              <BookOpen className="w-10 h-10 text-white" />
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
+      {/* Subtle background pattern */}
+      <div className="absolute inset-0 opacity-5">
+        <div className="absolute inset-0" style={{
+          backgroundImage: 'linear-gradient(45deg, #DC2626 25%, transparent 25%), linear-gradient(-45deg, #DC2626 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #DC2626 75%), linear-gradient(-45deg, transparent 75%, #DC2626 75%)',
+          backgroundSize: '20px 20px',
+          backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px'
+        }}></div>
+      </div>
+
+      <Card className="w-full max-w-md shadow-2xl border-gray-200 relative z-10">
+        <CardHeader className="space-y-4 text-center pb-8">
+          <div className="flex justify-center">
+            <div className="bg-primary p-5 rounded-2xl shadow-lg">
+              <GraduationCap className="w-14 h-14 text-white" />
             </div>
           </div>
-          <CardTitle className="text-3xl">GLOBALENGLISH</CardTitle>
-          <CardDescription>
-            Sistema de Gestión Educativa
-            <br />
-            Ingresa tus credenciales para continuar
-          </CardDescription>
+          <div className="space-y-2">
+            <CardTitle className="text-4xl font-semibold tracking-tight">GLOBALENGLISH</CardTitle>
+            <CardDescription className="text-base">
+              Sistema de Gestión Educativa
+            </CardDescription>
+            <div className="h-1 w-24 bg-primary mx-auto rounded-full mt-4"></div>
+          </div>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <CardContent className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="email">Correo Electrónico</Label>
+              <Label htmlFor="email" className="text-sm font-semibold">Correo Electrónico</Label>
               <Input
                 id="email"
                 type="email"
@@ -67,10 +77,11 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="h-12 border-gray-300 focus:border-primary focus:ring-primary"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Contraseña</Label>
+              <Label htmlFor="password" className="text-sm font-semibold">Contraseña</Label>
               <Input
                 id="password"
                 type="password"
@@ -78,23 +89,28 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className="h-12 border-gray-300 focus:border-primary focus:ring-primary"
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button 
+              type="submit" 
+              className="w-full h-12 text-base font-semibold shadow-lg hover:shadow-xl transition-all" 
+              disabled={loading}
+            >
               {loading ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   Iniciando sesión...
                 </>
               ) : (
-                'Iniciar Sesión'
+                'INICIAR SESIÓN'
               )}
             </Button>
           </form>
 
-          <div className="mt-6 pt-6 border-t">
-            <p className="text-sm text-muted-foreground text-center mb-3">
-              Demo - Acceso rápido:
+          <div className="pt-6 border-t border-gray-200">
+            <p className="text-sm text-muted-foreground text-center mb-4 font-medium">
+              Acceso rápido para demostración:
             </p>
             <div className="grid gap-2">
               <Button
@@ -102,7 +118,9 @@ export default function LoginPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => quickLogin('admin')}
+                className="justify-start hover:bg-accent hover:text-primary hover:border-primary"
               >
+                <UserCog className="w-4 h-4 mr-2" />
                 Administrador
               </Button>
               <Button
@@ -110,7 +128,9 @@ export default function LoginPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => quickLogin('administrativo')}
+                className="justify-start hover:bg-accent hover:text-primary hover:border-primary"
               >
+                <Settings className="w-4 h-4 mr-2" />
                 Administrativo
               </Button>
               <Button
@@ -118,7 +138,9 @@ export default function LoginPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => quickLogin('tutor')}
+                className="justify-start hover:bg-accent hover:text-primary hover:border-primary"
               >
+                <School className="w-4 h-4 mr-2" />
                 Tutor
               </Button>
             </div>

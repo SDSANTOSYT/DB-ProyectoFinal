@@ -1,13 +1,13 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
+import { resolvePath } from 'react-router-dom';
 
 type Rol = 'ADMINISTRADOR' | 'ADMINISTRATIVO' | 'TUTOR';
 
 interface User {
-  id: string;
   nombre: string;
-  email: string;
+  correo: string;
   rol: Rol;
-  documento: string;
+  id_persona: string;
 }
 
 interface AuthContextType {
@@ -18,33 +18,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock users para demostración
-const mockUsers: Record<string, User & { password: string }> = {
-  'admin@globalenglish.com': {
-    id: '1',
-    nombre: 'Admin Principal',
-    email: 'admin@globalenglish.com',
-    rol: 'ADMINISTRADOR',
-    documento: '1234567890',
-    password: 'admin123',
-  },
-  'admin2@globalenglish.com': {
-    id: '2',
-    nombre: 'María González',
-    email: 'admin2@globalenglish.com',
-    rol: 'ADMINISTRATIVO',
-    documento: '0987654321',
-    password: 'admin123',
-  },
-  'tutor@globalenglish.com': {
-    id: '3',
-    nombre: 'Carlos Rodríguez',
-    email: 'tutor@globalenglish.com',
-    rol: 'TUTOR',
-    documento: '1122334455',
-    password: 'tutor123',
-  },
-};
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {
@@ -53,15 +26,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const login = async (email: string, password: string) => {
-    // Simular delay de red
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    const url = `http://127.0.0.1:8000/auth/login`
 
-    const mockUser = mockUsers[email];
-    if (!mockUser || mockUser.password !== password) {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ "email": email, "password": password })
+    });
+
+    if (!response.ok) {
       throw new Error('Credenciales inválidas');
     }
 
-    const { password: _, ...userWithoutPassword } = mockUser;
+    const { access_token: _, token_type: __, ...userWithoutPassword } = await response.json()
+    console.log(userWithoutPassword)
     setUser(userWithoutPassword);
     localStorage.setItem('globalenglish_user', JSON.stringify(userWithoutPassword));
   };
