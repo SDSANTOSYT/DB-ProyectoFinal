@@ -62,6 +62,9 @@ class AulaResponse(AulaCreate):
     nombre_institucion: Optional[str] = None
     id_programa: Optional[int] = None
     id_tutor: Optional[int] = None
+
+class AsignarTutorRequest(BaseModel):
+    id_tutor: Optional[int] = None
     
 
 # -----------------

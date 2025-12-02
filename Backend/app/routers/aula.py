@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException
 import oracledb
 import logging
 from app.db import get_conn
-from app.schemas import AulaCreate, AulaResponse, AulaUpdate
+from app.schemas import AsignarTutorRequest, AulaCreate, AulaResponse, AulaUpdate
 from typing import List, Optional
 
 logger = logging.getLogger(__name__)
@@ -355,13 +355,12 @@ def borrar_aula(id_aula: int):
         if conn:
             conn.close()
 
-@router.put("/{id_aula}/asignar-tutor")
-def asignar_tutor_a_aula(id_aula: int, id_tutor: Optional[int] = None):
+@router.put("/{id_aula}/asignar-tutor", response_model=AulaResponse)
+def asignar_tutor_a_aula(id_aula: int, payload: AsignarTutorRequest):
     """
     Asigna o desasigna un tutor a un aula.
     - Si id_tutor tiene un valor: asigna ese tutor al aula
     - Si id_tutor es null: desasigna cualquier tutor del aula
-    pipipipi
     """
     conn = None
     cur = None
@@ -369,6 +368,8 @@ def asignar_tutor_a_aula(id_aula: int, id_tutor: Optional[int] = None):
     try:
         conn = get_conn()
         cur = conn.cursor()
+
+        logger.info(f"Procesando asignación de tutor para aula {id_aula}")
 
         # Verificar que el aula existe
         cur.execute("""
@@ -383,17 +384,17 @@ def asignar_tutor_a_aula(id_aula: int, id_tutor: Optional[int] = None):
             raise HTTPException(status_code=404, detail="Aula no encontrada")
 
         # Si se proporciona un id_tutor, verificar que existe
-        if id_tutor is not None:
-            logger.info(f"Asignando tutor {id_tutor} al aula {id_aula}")
+        if payload.id_tutor is not None:
+            logger.info(f"Asignando tutor {payload.id_tutor} al aula {id_aula}")
             
             cur.execute("""
                 SELECT ID_TUTOR 
                 FROM TUTOR 
                 WHERE ID_TUTOR = :1
-            """, (id_tutor,))
+            """, (payload.id_tutor,))
             
             if not cur.fetchone():
-                logger.warning(f"Tutor {id_tutor} no encontrado")
+                logger.warning(f"Tutor {payload.id_tutor} no encontrado")
                 raise HTTPException(status_code=404, detail="Tutor no encontrado")
         else:
             logger.info(f"Desasignando tutor del aula {id_aula}")
@@ -403,7 +404,7 @@ def asignar_tutor_a_aula(id_aula: int, id_tutor: Optional[int] = None):
             UPDATE AULA 
             SET ID_TUTOR = :1 
             WHERE ID_AULA = :2
-        """, (id_tutor, id_aula))
+        """, (payload.id_tutor, id_aula))
 
         if cur.rowcount == 0:
             raise HTTPException(
@@ -413,7 +414,7 @@ def asignar_tutor_a_aula(id_aula: int, id_tutor: Optional[int] = None):
 
         conn.commit()
 
-        mensaje = f"Tutor asignado exitosamente" if id_tutor else "Tutor desasignado exitosamente"
+        mensaje = f"Tutor asignado exitosamente" if payload.id_tutor else "Tutor desasignado exitosamente"
         logger.info(mensaje)
 
         # Devolver el aula actualizada
@@ -428,6 +429,12 @@ def asignar_tutor_a_aula(id_aula: int, id_tutor: Optional[int] = None):
         
         r = cur.fetchone()
         
+        if not r:
+            raise HTTPException(
+                status_code=500,
+                detail="Error al recuperar el aula actualizada"
+            )
+        
         return {
             "id_aula": r[0],
             "nombre_aula": r[1],
@@ -437,8 +444,7 @@ def asignar_tutor_a_aula(id_aula: int, id_tutor: Optional[int] = None):
             "id_institucion": r[5],
             "nombre_institucion": r[6],
             "id_programa": r[7],
-            "id_tutor": r[8],
-            "mensaje": mensaje
+            "id_tutor": r[8]
         }
 
     except HTTPException:
