@@ -38,11 +38,6 @@ import {
   Clock,
   X,
 } from 'lucide-react';
-import {
-  instituciones,
-  sedes,
-  tutores,
-} from '../../lib/mockData';
 import { toast } from 'sonner@2.0.3';
 import type { Aula, Institucion, Sede, TutorInfo } from '../../lib/types';
 
@@ -55,7 +50,8 @@ export default function GestionAulas() {
   const [filterGrado, setFilterGrado] = useState<string>('all');
   const [openDialog, setOpenDialog] = useState(false);
   const [openTutorDialog, setOpenTutorDialog] = useState(false);
-  const [selectedAula, setSelectedAula] = useState<string | null>(null);
+  const [selectedAula, setSelectedAula] = useState<Aula | null>(null);
+
   const [selectedTutor, setSelectedTutor] = useState<string>('');
   const [aulas, setAulas] = useState<Aula[]>([]);
   const [tutors, setTutors] = useState<TutorInfo[]>([]);
@@ -230,16 +226,41 @@ export default function GestionAulas() {
   });
 
   const handleCreateAula = (e: React.FormEvent) => {
+
     e.preventDefault();
     toast.success('Aula creada exitosamente');
     setOpenDialog(false);
   };
 
-  const handleChangeTutor = (e: React.FormEvent) => {
+  const handleChangeTutor = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    toast.success('Tutor asignado exitosamente');
-    setOpenTutorDialog(false);
+    if (!selectedAula) return;
+
+    const aulaData = selectedAula;
+
+    const payload = {
+      id_aula: aulaData.id_aula,
+      id_sede: aulaData.id_sede,
+      id_institucion: aulaData.id_institucion,
+      id_tutor: selectedTutor ? Number(selectedTutor) : null
+    };
+
+
+    const res = await fetch("http://127.0.0.1:8000/aulas/asignar-tutor", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (res.ok) {
+      toast.success("Tutor asignado correctamente");
+      const aulasData = await getAulas()
+      setAulas(aulasData)
+      setOpenTutorDialog(false);
+    } else {
+      toast.error("Error al asignar el tutor");
+    }
   };
 
   const handleChangeSelectedInstitucion = async (value: string) => {
@@ -294,10 +315,10 @@ export default function GestionAulas() {
                       <SelectValue placeholder="Seleccionar grado" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="4">4°</SelectItem>
-                      <SelectItem value="5">5°</SelectItem>
-                      <SelectItem value="9">9°</SelectItem>
-                      <SelectItem value="10">10°</SelectItem>
+                      {(formData.id_programa === '' || formData.id_programa === '1') && <SelectItem value="4">4°</SelectItem>}
+                      {(formData.id_programa === '' || formData.id_programa === '1') && <SelectItem value="5">5°</SelectItem>}
+                      {(formData.id_programa === '' || formData.id_programa === '2') && <SelectItem value="9">9°</SelectItem>}
+                      {(formData.id_programa === '' || formData.id_programa === '2') && <SelectItem value="10">10°</SelectItem>}
                     </SelectContent>
                   </Select>
                 </div>
@@ -373,9 +394,9 @@ export default function GestionAulas() {
                       <SelectValue placeholder="Seleccionar tutor" />
                     </SelectTrigger>
                     <SelectContent>
-                      {tutores.map((tutor) => (
-                        <SelectItem key={tutor.id} value={tutor.id}>
-                          {tutor.nombre}
+                      {tutors.map((tutor) => (
+                        <SelectItem key={tutor.id_tutor} value={tutor.id_tutor}>
+                          {tutor.nombre_persona}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -419,7 +440,18 @@ export default function GestionAulas() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setOpenDialog(false)}
+                  onClick={() => {
+                    setOpenDialog(false)
+                    setFormData({
+                      nombre_aula: '',
+                      grado: '',
+                      id_sede: '',
+                      id_institucion: '',
+                      id_programa: '',
+                      id_tutor: ''
+                    })
+
+                  }}
                 >
                   Cancelar
                 </Button>
@@ -470,8 +502,8 @@ export default function GestionAulas() {
                 <SelectContent>
                   <SelectItem value="all">Todas las sedes</SelectItem>
                   {sedesFiltradas.map((sede) => (
-                    <SelectItem key={sede.id} value={sede.id}>
-                      {sede.nombre}
+                    <SelectItem key={sede.id_sede} value={sede.id_sede}>
+                      {sede.nombre_sede}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -572,11 +604,7 @@ export default function GestionAulas() {
                           variant="ghost"
                           size="sm"
                           onClick={() => {
-                            setSelectedAula(JSON.stringify({
-                              id_aula: aula.id_aula,
-                              id_sede: aula.id_sede,
-                              id_institucion: aula.id_institucion
-                            }));
+                            setSelectedAula(aula);
                             setOpenTutorDialog(true);
                           }}
                         >
@@ -612,25 +640,31 @@ export default function GestionAulas() {
               <Label htmlFor="new-tutor">Nuevo Tutor</Label>
               <Select
                 value={selectedTutor}
-                onValueChange={(value: string) => setSelectedTutor(value)}
-                required>
+                onValueChange={setSelectedTutor}
+                required
+              >
                 <SelectTrigger id="id_tutor">
                   <SelectValue placeholder="Seleccionar tutor" />
                 </SelectTrigger>
                 <SelectContent>
-                  {tutors.map((tutor) => (
-                    <SelectItem key={tutor.id_tutor} value={tutor.id_tutor.toString()}>
-                      Tutor {tutor.id_tutor}: {tutor.nombre_persona} - {tutor.id_persona}
+                  {tutors.map((t) => (
+                    <SelectItem key={t.id_tutor} value={String(t.id_tutor)}>
+                      Tutor {t.id_tutor}: {t.nombre_persona} - {t.id_persona}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+
             </div>
             <div className="flex justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setOpenTutorDialog(false)}
+                onClick={() => {
+                  setOpenTutorDialog(false)
+                  setSelectedTutor('')
+                  setSelectedAula(null)
+                }}
               >
                 Cancelar
               </Button>

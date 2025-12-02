@@ -64,9 +64,9 @@ class AulaResponse(AulaCreate):
     id_tutor: Optional[int] = None
 
 class AsignarTutorRequest(BaseModel):
-    id_aula: int
-    id_sede: int
-    id_institucion: int
+    id_aula: Optional[int] = None
+    id_sede: Optional[int] = None
+    id_institucion: Optional[int] = None
     id_tutor: Optional[int] = None
     
 
@@ -145,6 +145,11 @@ class CambiarAulaRequest(BaseModel):
 
 class ActualizarScoreFinalRequest(BaseModel):
     score_final: float
+
+
+# -----------------
+# Tutor
+# -----------------
     
 
 class TutorListItem(BaseModel):
@@ -172,6 +177,17 @@ class TutorUnlinkResponse(BaseModel):
     id_tutor: int
     id_persona: Optional[int] = None
     mensaje: str
+
+class TutorAulaAssignRequest(BaseModel):
+    id_tutor: int
+    id_aula: int
+    id_sede: int
+    id_institucion: int
+
+class TutorAulaAssignResponse(BaseModel):
+    tutor: TutorListItem
+    aula: AulaUpdate
+    mensaje: Optional[str] = None
 
 # -----------------
 # Horario / Periodo / Componente / Nota

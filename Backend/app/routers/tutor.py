@@ -5,7 +5,7 @@ import oracledb
 import logging
 from ..db import get_conn
 from ..schemas import (
-    TutorAssignRequest, TutorAssignResponse, TutorCreate, TutorDeleteResponse, TutorIdResponse, AulaSimple, AulasCountResponse,
+    TutorAssignRequest, TutorAssignResponse, TutorAulaAssignRequest, TutorAulaAssignResponse, TutorCreate, TutorDeleteResponse, TutorIdResponse, AulaSimple, AulasCountResponse,
     AulaStudentCount, StudentSimple, HorarioSimple, LoginRequest, LoginResponse, TutorListInfoItem, TutorListItem, TutorUnlinkResponse
 )
 
@@ -287,3 +287,102 @@ def desvincular_persona_de_tutor(id_tutor: int):
         return {"id_tutor": id_tutor, "id_persona": None, "mensaje": "Persona desvinculada del tutor"}
     finally:
         cur.close(); conn.close()
+
+# 12+1) Vincular tutor con aula
+@router.put("/asignar-aula", response_model=TutorAulaAssignResponse)
+def asignar_tutor_a_aula(payload: TutorAulaAssignRequest):
+    """
+    Asigna (relaciona) un tutor a un aula compuesta por (id_aula, id_sede, id_institucion).
+    Devuelve la informacion actualizada del tutor y del aula.
+    """
+    conn = None
+    cur = None
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+
+        # 1) Verificar que el tutor exista
+        cur.execute("SELECT ID_TUTOR, ID_PERSONA FROM TUTOR WHERE ID_TUTOR = :1", (payload.id_tutor,))
+        tutor_row = cur.fetchone()
+        if not tutor_row:
+            raise HTTPException(status_code=404, detail=f"Tutor {payload.id_tutor} no existe")
+
+        # 2) Verificar que la aula exista con la clave compuesta
+        cur.execute("""
+            SELECT ID_AULA FROM AULA
+            WHERE ID_AULA = :1 AND ID_SEDE = :2 AND ID_INSTITUCION = :3
+        """, (payload.id_aula, payload.id_sede, payload.id_institucion))
+        aula_exists = cur.fetchone()
+        if not aula_exists:
+            raise HTTPException(status_code=404, detail="Aula no encontrada con la combinación id_aula/id_sede/id_institucion")
+
+        # 3) Actualizar la aula (asignar tutor)
+        cur.execute("""
+            UPDATE AULA
+            SET ID_TUTOR = :1
+            WHERE ID_AULA = :2 AND ID_SEDE = :3 AND ID_INSTITUCION = :4
+        """, (payload.id_tutor, payload.id_aula, payload.id_sede, payload.id_institucion))
+
+        if cur.rowcount == 0:
+            conn.rollback()
+            raise HTTPException(status_code=500, detail="No se pudo asignar el tutor a la aula")
+
+        conn.commit()
+
+        # 4) Recuperar la info actualizada del aula
+        cur2 = conn.cursor()
+        cur2.execute("""
+            SELECT ID_AULA, CODIGO_AULA, GRADO, CAPACIDAD, UBICACION, ID_SEDE, ID_INSTITUCION, ID_TUTOR
+            FROM AULA
+            WHERE ID_AULA = :1 AND ID_SEDE = :2 AND ID_INSTITUCION = :3
+        """, (payload.id_aula, payload.id_sede, payload.id_institucion))
+        aula_row = cur2.fetchone()
+        if not aula_row:
+            raise HTTPException(status_code=500, detail="Error al recuperar el aula actualizada")
+
+        cols = [c[0].lower() for c in cur2.description]
+        aula_data = dict(zip(cols, aula_row))
+
+        # 5) Recuperar (de nuevo) tutor info por si quieres devolver id_persona
+        # (ya la obtuvimos arriba en tutor_row)
+        tutor_data = {"id_tutor": tutor_row[0], "id_persona": tutor_row[1]}
+
+        return {
+            "tutor": tutor_data,
+            "aula": {
+                "id_aula": aula_data.get("id_aula"),
+                "codigo_aula": aula_data.get("codigo_aula"),
+                "grado": aula_data.get("grado"),
+                "capacidad": aula_data.get("capacidad"),
+                "ubicacion": aula_data.get("ubicacion"),
+                "id_sede": aula_data.get("id_sede"),
+                "id_institucion": aula_data.get("id_institucion"),
+                "id_tutor": aula_data.get("id_tutor")
+            },
+            "mensaje": f"Tutor {payload.id_tutor} asignado a aula {payload.id_aula}"
+        }
+
+    except HTTPException:
+        # no rollback por HTTPException específico (ya manejado)
+        raise
+
+    except oracledb.IntegrityError as e:
+        if conn:
+            conn.rollback()
+        raise HTTPException(status_code=400, detail=f"Error de integridad: {str(e)}")
+
+    except oracledb.DatabaseError as e:
+        if conn:
+            conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Error en la base de datos: {str(e)}")
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
