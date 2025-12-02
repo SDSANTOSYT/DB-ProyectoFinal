@@ -37,6 +37,8 @@ import {
 import { toast } from 'sonner@2.0.3';
 import type { Aula, Institucion, Sede, TutorInfo } from '../../lib/types';
 
+const API_URL = 'http://127.0.0.1:8000';
+
 export default function GestionAulas() {
   const location = useLocation();
   const [searchTerm, setSearchTerm] = useState('');
@@ -59,21 +61,22 @@ export default function GestionAulas() {
     id_sede: '',
     id_institucion: '',
     id_programa: '',
-    id_tutor: ''
-  })
+    id_tutor: '',
+  });
 
   // Estado para el formulario de nueva aula
   const [newAulaGrado, setNewAulaGrado] = useState<string>('');
 
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
 
+  // ======== FETCH HELPERS =========
 
   const getInstituciones = async () => {
-    const url = `http://127.0.0.1:8000/instituciones/`;
+    const url = `${API_URL}/instituciones/`;
 
     const response = await fetch(url, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {
@@ -86,11 +89,11 @@ export default function GestionAulas() {
   };
 
   const getSedesById = async (id_institucion: number) => {
-    const url = `http://127.0.0.1:8000/sedes/by-institucion/${id_institucion}`;
+    const url = `${API_URL}/sedes/by-institucion/${id_institucion}`;
 
     const response = await fetch(url, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {
@@ -102,20 +105,12 @@ export default function GestionAulas() {
     return sedesData as Sede[];
   };
 
-  useEffect(() => {
-    const obtenerInstituciones = async () => {
-      const data = await getInstituciones();
-      setInstituciones(data);
-    };
-    obtenerInstituciones();
-  }, []);
-
   const getAulas = async () => {
-    const url = `http://127.0.0.1:8000/aulas/`;
+    const url = `${API_URL}/aulas/`;
 
     const response = await fetch(url, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {
@@ -125,14 +120,14 @@ export default function GestionAulas() {
 
     const aulasData = await response.json();
     return aulasData as Aula[];
-  }
+  };
 
   const getTutors = async () => {
-    const url = `http://127.0.0.1:8000/tutores/info`;
+    const url = `${API_URL}/tutores/info`;
 
     const response = await fetch(url, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
     });
 
     if (!response.ok) {
@@ -144,6 +139,15 @@ export default function GestionAulas() {
     return tutoresData as TutorInfo[];
   };
 
+  // ======== EFFECTS =========
+
+  useEffect(() => {
+    const obtenerInstituciones = async () => {
+      const data = await getInstituciones();
+      setInstituciones(data);
+    };
+    obtenerInstituciones();
+  }, []);
 
   useEffect(() => {
     const obtenerAulas = async () => {
@@ -167,12 +171,12 @@ export default function GestionAulas() {
       const { filterSede: sedeId, filterInstitucion: institucionId } = location.state as any;
 
       if (institucionId) {
-        setFilterInstitucion(institucionId);
+        setFilterInstitucion(String(institucionId));
         setActiveFilters(prev => [...prev, 'institucion']);
       }
 
       if (sedeId) {
-        setFilterSede(sedeId);
+        setFilterSede(String(sedeId));
         setActiveFilters(prev => [...prev, 'sede']);
       }
 
@@ -182,7 +186,10 @@ export default function GestionAulas() {
         toast.info(`Filtrando aulas de: ${sede.nombre_sede}`);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state]);
+
+  // ======== FILTROS =========
 
   const clearFilters = () => {
     setSearchTerm('');
@@ -194,57 +201,79 @@ export default function GestionAulas() {
     toast.success('Filtros limpiados');
   };
 
-  const sedesFiltradas = filterInstitucion === 'all'
-    ? sedes
-    : sedes.filter(sede => sede.id_institucion.toString() === filterInstitucion);
+  const sedesFiltradas =
+    filterInstitucion === 'all'
+      ? sedes
+      : sedes.filter(
+          sede => sede.id_institucion.toString() === filterInstitucion
+        );
 
-  const filteredAulas = aulas.filter(async (aula) => {
-    const sede = { id: aula.id_sede, nombre: aula.nombre_sede }
-    const institucion = { id: aula.id_institucion, nombre: aula.nombre_institucion }
-    const tutor = tutors.find((t) => t.id_tutor === aula.id_tutor)
+  const filteredAulas = aulas.filter(aula => {
+    const sede = { id: aula.id_sede, nombre: aula.nombre_sede };
+    const institucion = {
+      id: aula.id_institucion,
+      nombre: aula.nombre_institucion,
+    };
+    const tutor = tutors.find(t => t.id_tutor === aula.id_tutor);
+
+    const search = searchTerm.toLowerCase().trim();
+    const nombreAula = aula.nombre_aula?.toLowerCase() ?? '';
+    const nombreTutor = tutor?.nombre_persona?.toLowerCase() ?? '';
 
     const matchesSearch =
-      aula.nombre_aula.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tutor?.nombre_persona.toLowerCase().includes(searchTerm.toLowerCase());
+      search === '' ||
+      nombreAula.includes(search) ||
+      nombreTutor.includes(search);
 
     const matchesInstitucion =
-      filterInstitucion === 'all' || institucion?.id.toString() === filterInstitucion;
+      filterInstitucion === 'all' ||
+      institucion?.id.toString() === filterInstitucion;
 
     const matchesSede =
       filterSede === 'all' || sede.id.toString() === filterSede;
 
     const matchesPrograma =
-      filterPrograma === 'all' || aula.id_programa.toString() === filterPrograma;
+      filterPrograma === 'all' ||
+      (filterPrograma === 'INSIDECLASSROOM' && aula.id_programa === 1) ||
+      (filterPrograma === 'OUTSIDECLASSROOM' && aula.id_programa === 2);
 
-    const matchesGrado = filterGrado === 'all' || aula.grado === filterGrado;
+    const matchesGrado =
+      filterGrado === 'all' || aula.grado === filterGrado;
 
-    return matchesSearch && matchesInstitucion && matchesSede && matchesPrograma && matchesGrado;
+    return (
+      matchesSearch &&
+      matchesInstitucion &&
+      matchesSede &&
+      matchesPrograma &&
+      matchesGrado
+    );
   });
 
-  const handleCreateAula = async (e: React.FormEvent) => {
+  // ======== HANDLERS =========
 
+  const handleCreateAula = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    console.log(formData)
+    console.log(formData);
     const payload = {
       nombre_aula: formData.nombre_aula,
       grado: formData.grado,
       id_sede: Number(formData.id_sede),
       id_institucion: Number(formData.id_institucion),
       id_programa: Number(formData.id_programa),
-      id_tutor: formData.id_tutor === 'none' ? null : Number(formData.id_tutor)
-    }
+      id_tutor: formData.id_tutor === 'none' ? null : Number(formData.id_tutor),
+    };
 
-    const res = await fetch("http://127.0.0.1:8000/aulas/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    const res = await fetch(`${API_URL}/aulas/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
 
     if (res.ok) {
       toast.success('Aula creada exitosamente');
-      const aulasData = await getAulas()
-      setAulas(aulasData)
+      const aulasData = await getAulas();
+      setAulas(aulasData);
       setOpenDialog(false);
       setFormData({
         nombre_aula: '',
@@ -252,10 +281,12 @@ export default function GestionAulas() {
         id_sede: '',
         id_institucion: '',
         id_programa: '',
-        id_tutor: ''
-      })
+        id_tutor: '',
+      });
+      setNewAulaGrado('');
     } else {
-      toast.error("Error al crear el aula");
+      const errorData = await res.json().catch(() => null);
+      toast.error(errorData?.detail ?? 'Error al crear el aula');
     }
   };
 
@@ -270,55 +301,90 @@ export default function GestionAulas() {
       id_aula: aulaData.id_aula,
       id_sede: aulaData.id_sede,
       id_institucion: aulaData.id_institucion,
-      id_tutor: selectedTutor ? Number(selectedTutor) : null
+      id_tutor: selectedTutor ? Number(selectedTutor) : null,
     };
 
-
-    const res = await fetch("http://127.0.0.1:8000/tutores/asignar-aula", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
+    // Según aula.py, el endpoint correcto es /aulas/asignar-tutor
+    const res = await fetch(`${API_URL}/aulas/asignar-tutor`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
 
     if (res.ok) {
-      toast.success("Tutor asignado correctamente");
-      const aulasData = await getAulas()
-      setAulas(aulasData)
+      toast.success('Tutor asignado correctamente');
+      const aulasData = await getAulas();
+      setAulas(aulasData);
       setOpenTutorDialog(false);
-      setSelectedTutor('')
+      setSelectedTutor('');
+      setSelectedAula(null);
     } else {
-      toast.error("Error al asignar el tutor");
+      const errorData = await res.json().catch(() => null);
+      toast.error(errorData?.detail ?? 'Error al asignar el tutor');
+    }
+  };
+
+  const handleDeleteAula = async (id_aula: number) => {
+    const confirmar = window.confirm(
+      '¿Está seguro de eliminar esta aula? Esta acción no se puede deshacer.'
+    );
+    if (!confirmar) return;
+
+    try {
+      const res = await fetch(`${API_URL}/aulas/${id_aula}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (res.ok) {
+        toast.success('Aula eliminada correctamente');
+        setAulas(prev => prev.filter(a => a.id_aula !== id_aula));
+      } else {
+        const errorData = await res.json().catch(() => null);
+        toast.error(
+          errorData?.detail ??
+            'Error al eliminar el aula. Verifica si tiene datos relacionados.'
+        );
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Error de conexión al eliminar el aula');
     }
   };
 
   const handleChangeSelectedInstitucion = async (value: string) => {
-    setFormData(prev => ({ ...prev, id_institucion: value, id_sede: '' }))
-    const sedes = await getSedesById(Number(value))
-    setSedes(sedes)
-  }
+    setFormData(prev => ({ ...prev, id_institucion: value, id_sede: '' }));
+    const sedesData = await getSedesById(Number(value));
+    setSedes(sedesData);
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [id]: value
+      [id]: value,
     }));
   };
 
   const handleChangeGrade = (value: string) => {
-    if ((value === '4' || value === '5')) {
-      setFormData(prev => ({ ...prev, grado: value, id_programa: '1' }))
-    } else if ((value === '9' || value === '10')) {
-      setFormData(prev => ({ ...prev, grado: value, id_programa: '2' }))
+    setNewAulaGrado(value);
+    if (value === '4' || value === '5') {
+      setFormData(prev => ({ ...prev, grado: value, id_programa: '1' }));
+    } else if (value === '9' || value === '10') {
+      setFormData(prev => ({ ...prev, grado: value, id_programa: '2' }));
+    } else {
+      setFormData(prev => ({ ...prev, grado: value }));
     }
+  };
 
-  }
-
-  const hasActiveFilters = filterInstitucion !== 'all' ||
+  const hasActiveFilters =
+    filterInstitucion !== 'all' ||
     filterSede !== 'all' ||
     filterPrograma !== 'all' ||
     filterGrado !== 'all' ||
     searchTerm !== '';
+
+  // ======== RENDER =========
 
   return (
     <div className="space-y-6">
@@ -347,17 +413,22 @@ export default function GestionAulas() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="nombre_aula">Nombre del Aula</Label>
-                  <Input id="nombre_aula" placeholder="Ej: Aula 4A"
+                  <Input
+                    id="nombre_aula"
+                    placeholder="Ej: Aula 4A"
                     value={formData.nombre_aula}
                     onChange={handleInputChange}
-                    required />
+                    required
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="grado">Grado</Label>
                   <Select
                     required
                     value={formData.grado}
-                    onValueChange={(value: string) => { handleChangeGrade(value) }}
+                    onValueChange={(value: string) => {
+                      handleChangeGrade(value);
+                    }}
                   >
                     <SelectTrigger id="grado">
                       <SelectValue placeholder="Seleccionar grado" />
@@ -376,26 +447,41 @@ export default function GestionAulas() {
                   <Label htmlFor="id_programa">Programa</Label>
                   <Select
                     value={formData.id_programa}
-                    onValueChange={(value: string) => { setFormData(prev => ({ ...prev, id_programa: value })) }}
-                    required>
+                    onValueChange={(value: string) => {
+                      setFormData(prev => ({ ...prev, id_programa: value }));
+                    }}
+                    required
+                  >
                     <SelectTrigger id="id_programa">
                       <SelectValue placeholder="Seleccionar programa" />
                     </SelectTrigger>
                     <SelectContent>
-                      {(formData.grado === '' || (formData.grado === '4' || formData.grado === '5')) && <SelectItem value="1">
-                        INSIDECLASSROOM (4°-5°)
-                      </SelectItem>}
-                      {(formData.grado === '' || (formData.grado === '9' || formData.grado === '10')) && <SelectItem value="2">
-                        OUTSIDECLASSROOM (9°-10°)
-                      </SelectItem>}
+                      {(formData.grado === '' ||
+                        formData.grado === '4' ||
+                        formData.grado === '5') && (
+                        <SelectItem value="1">
+                          INSIDECLASSROOM (4°-5°)
+                        </SelectItem>
+                      )}
+                      {(formData.grado === '' ||
+                        formData.grado === '9' ||
+                        formData.grado === '10') && (
+                        <SelectItem value="2">
+                          OUTSIDECLASSROOM (9°-10°)
+                        </SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                   {newAulaGrado && (
                     <p className="text-xs text-muted-foreground">
-                      {(newAulaGrado === '4' || newAulaGrado === '5') ? (
-                        <span>📚 Horario regular de institución (Lun-Vie, máx 2h)</span>
+                      {newAulaGrado === '4' || newAulaGrado === '5' ? (
+                        <span>
+                          📚 Horario regular de institución (Lun-Vie, máx 2h)
+                        </span>
                       ) : (
-                        <span>🌙 Horario extracurricular (Lun-Sáb, máx 3h)</span>
+                        <span>
+                          🌙 Horario extracurricular (Lun-Sáb, máx 3h)
+                        </span>
                       )}
                     </p>
                   )}
@@ -404,14 +490,20 @@ export default function GestionAulas() {
                   <Label htmlFor="aula-institucion">Institución</Label>
                   <Select
                     value={formData.id_institucion}
-                    onValueChange={(value: string) => { handleChangeSelectedInstitucion(value) }}
-                    required>
+                    onValueChange={(value: string) => {
+                      handleChangeSelectedInstitucion(value);
+                    }}
+                    required
+                  >
                     <SelectTrigger id="id-institucion">
                       <SelectValue placeholder="Seleccionar institución" />
                     </SelectTrigger>
                     <SelectContent>
-                      {instituciones.map((inst) => (
-                        <SelectItem key={inst.id_institucion} value={inst.id_institucion.toString()}>
+                      {instituciones.map(inst => (
+                        <SelectItem
+                          key={inst.id_institucion}
+                          value={inst.id_institucion.toString()}
+                        >
                           {inst.nombre}
                         </SelectItem>
                       ))}
@@ -424,14 +516,20 @@ export default function GestionAulas() {
                   <Label htmlFor="id_sede">Sede</Label>
                   <Select
                     value={formData.id_sede}
-                    onValueChange={(value: string) => { setFormData(prev => ({ ...prev, id_sede: value })) }}
-                    required>
+                    onValueChange={(value: string) => {
+                      setFormData(prev => ({ ...prev, id_sede: value }));
+                    }}
+                    required
+                  >
                     <SelectTrigger id="id_sede">
                       <SelectValue placeholder="Seleccionar sede" />
                     </SelectTrigger>
                     <SelectContent>
-                      {sedes.map((sede) => (
-                        <SelectItem key={sede.id_sede} value={sede.id_sede.toString()}>
+                      {sedes.map(sede => (
+                        <SelectItem
+                          key={sede.id_sede}
+                          value={sede.id_sede.toString()}
+                        >
                           {sede.nombre_sede}
                         </SelectItem>
                       ))}
@@ -442,8 +540,11 @@ export default function GestionAulas() {
                   <Label htmlFor="id_tutor">Tutor Asignado</Label>
                   <Select
                     value={formData.id_tutor}
-                    onValueChange={(value: string) => { setFormData(prev => ({ ...prev, id_tutor: value })) }}
-                    required>
+                    onValueChange={(value: string) => {
+                      setFormData(prev => ({ ...prev, id_tutor: value }));
+                    }}
+                    required
+                  >
                     <SelectTrigger id="id_tutor">
                       <SelectValue placeholder="Seleccionar tutor" />
                     </SelectTrigger>
@@ -451,8 +552,11 @@ export default function GestionAulas() {
                       <SelectItem key={'Ninguno'} value={'none'}>
                         Ninguno
                       </SelectItem>
-                      {tutors.map((tutor) => (
-                        <SelectItem key={tutor.id_tutor} value={tutor.id_tutor.toString()}>
+                      {tutors.map(tutor => (
+                        <SelectItem
+                          key={tutor.id_tutor}
+                          value={tutor.id_tutor.toString()}
+                        >
                           {tutor.nombre_persona}
                         </SelectItem>
                       ))}
@@ -469,25 +573,37 @@ export default function GestionAulas() {
                     <div className="flex items-start gap-2">
                       <span className="font-medium">•</span>
                       <span>
-                        <strong>Programa:</strong> {(newAulaGrado === '4' || newAulaGrado === '5') ? 'INSIDECLASSROOM' : 'OUTSIDECLASSROOM'}
+                        <strong>Programa:</strong>{' '}
+                        {newAulaGrado === '4' || newAulaGrado === '5'
+                          ? 'INSIDECLASSROOM'
+                          : 'OUTSIDECLASSROOM'}
                       </span>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="font-medium">•</span>
                       <span>
-                        <strong>Días permitidos:</strong> {(newAulaGrado === '4' || newAulaGrado === '5') ? 'Lunes a Viernes' : 'Lunes a Sábado'}
+                        <strong>Días permitidos:</strong>{' '}
+                        {newAulaGrado === '4' || newAulaGrado === '5'
+                          ? 'Lunes a Viernes'
+                          : 'Lunes a Sábado'}
                       </span>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="font-medium">•</span>
                       <span>
-                        <strong>Horas semanales:</strong> Máximo {(newAulaGrado === '4' || newAulaGrado === '5') ? '2 horas' : '3 horas'}
+                        <strong>Horas semanales:</strong> Máximo{' '}
+                        {newAulaGrado === '4' || newAulaGrado === '5'
+                          ? '2 horas'
+                          : '3 horas'}
                       </span>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="font-medium">•</span>
                       <span>
-                        <strong>Horario:</strong> {(newAulaGrado === '4' || newAulaGrado === '5') ? 'Dentro del horario escolar' : 'Jornada contraria'}
+                        <strong>Horario:</strong>{' '}
+                        {newAulaGrado === '4' || newAulaGrado === '5'
+                          ? 'Dentro del horario escolar'
+                          : 'Jornada contraria'}
                       </span>
                     </div>
                   </div>
@@ -498,16 +614,16 @@ export default function GestionAulas() {
                   type="button"
                   variant="outline"
                   onClick={() => {
-                    setOpenDialog(false)
+                    setOpenDialog(false);
                     setFormData({
                       nombre_aula: '',
                       grado: '',
                       id_sede: '',
                       id_institucion: '',
                       id_programa: '',
-                      id_tutor: ''
-                    })
-
+                      id_tutor: '',
+                    });
+                    setNewAulaGrado('');
                   }}
                 >
                   Cancelar
@@ -530,19 +646,25 @@ export default function GestionAulas() {
                   <Input
                     placeholder="Buscar por aula o tutor..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={e => setSearchTerm(e.target.value)}
                     className="pl-9"
                   />
                 </div>
               </div>
-              <Select value={filterInstitucion} onValueChange={setFilterInstitucion}>
+              <Select
+                value={filterInstitucion}
+                onValueChange={setFilterInstitucion}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Institución" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas las instituciones</SelectItem>
-                  {instituciones.map((inst) => (
-                    <SelectItem key={inst.id_institucion} value={inst.id_institucion}>
+                  {instituciones.map(inst => (
+                    <SelectItem
+                      key={inst.id_institucion}
+                      value={inst.id_institucion.toString()}
+                    >
                       {inst.nombre}
                     </SelectItem>
                   ))}
@@ -558,21 +680,31 @@ export default function GestionAulas() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas las sedes</SelectItem>
-                  {sedesFiltradas.map((sede) => (
-                    <SelectItem key={sede.id_sede} value={sede.id_sede}>
+                  {sedesFiltradas.map(sede => (
+                    <SelectItem
+                      key={sede.id_sede}
+                      value={sede.id_sede.toString()}
+                    >
                       {sede.nombre_sede}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={filterPrograma} onValueChange={setFilterPrograma}>
+              <Select
+                value={filterPrograma}
+                onValueChange={setFilterPrograma}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Programa" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos los programas</SelectItem>
-                  <SelectItem value="INSIDECLASSROOM">INSIDECLASSROOM</SelectItem>
-                  <SelectItem value="OUTSIDECLASSROOM">OUTSIDECLASSROOM</SelectItem>
+                  <SelectItem value="INSIDECLASSROOM">
+                    INSIDECLASSROOM
+                  </SelectItem>
+                  <SelectItem value="OUTSIDECLASSROOM">
+                    OUTSIDECLASSROOM
+                  </SelectItem>
                 </SelectContent>
               </Select>
               <Select value={filterGrado} onValueChange={setFilterGrado}>
@@ -594,11 +726,7 @@ export default function GestionAulas() {
                 <p className="text-sm text-muted-foreground">
                   Filtros activos aplicados
                 </p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearFilters}
-                >
+                <Button variant="ghost" size="sm" onClick={clearFilters}>
                   <X className="w-4 h-4 mr-1" />
                   Limpiar filtros
                 </Button>
@@ -626,13 +754,23 @@ export default function GestionAulas() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredAulas.map((aula) => {
-                const sede = { id: aula.id_sede, nombre: aula.nombre_sede }
-                const institucion = { id: aula.id_institucion, nombre: aula.nombre_institucion }
-                const tutor = tutors.find((t) => t.id_tutor === aula.id_tutor)
+              {filteredAulas.map(aula => {
+                const sede = {
+                  id: aula.id_sede,
+                  nombre: aula.nombre_sede,
+                };
+                const institucion = {
+                  id: aula.id_institucion,
+                  nombre: aula.nombre_institucion,
+                };
+                const tutor = tutors.find(
+                  t => t.id_tutor === aula.id_tutor
+                );
 
                 return (
-                  <TableRow key={`${aula.id_aula}-${aula.id_sede}-${aula.id_institucion}`}>
+                  <TableRow
+                    key={`${aula.id_aula}-${aula.id_sede}-${aula.id_institucion}`}
+                  >
                     <TableCell>{aula.nombre_aula}</TableCell>
                     <TableCell>
                       <Badge variant="outline">{aula.grado}°</Badge>
@@ -640,9 +778,7 @@ export default function GestionAulas() {
                     <TableCell>
                       <Badge
                         variant={
-                          aula.id_programa === 1
-                            ? 'default'
-                            : 'secondary'
+                          aula.id_programa === 1 ? 'default' : 'secondary'
                         }
                       >
                         {aula.id_programa === 1 ? 'Inside' : 'Outside'}
@@ -651,10 +787,16 @@ export default function GestionAulas() {
                     <TableCell>
                       <div>
                         <p className="text-sm">{institucion?.nombre}</p>
-                        <p className="text-xs text-muted-foreground">{sede?.nombre}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {sede?.nombre}
+                        </p>
                       </div>
                     </TableCell>
-                    <TableCell>{tutor ? tutor.nombre_persona : 'No hay tutor asignado'}</TableCell>
+                    <TableCell>
+                      {tutor
+                        ? tutor.nombre_persona
+                        : 'No hay tutor asignado'}
+                    </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
                         <Button
@@ -666,6 +808,13 @@ export default function GestionAulas() {
                           }}
                         >
                           <UserCog className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDeleteAula(aula.id_aula)}
+                        >
+                          Eliminar aula
                         </Button>
                       </div>
                     </TableCell>
@@ -704,23 +853,22 @@ export default function GestionAulas() {
                   <SelectValue placeholder="Seleccionar tutor" />
                 </SelectTrigger>
                 <SelectContent>
-                  {tutors.map((t) => (
+                  {tutors.map(t => (
                     <SelectItem key={t.id_tutor} value={String(t.id_tutor)}>
                       Tutor {t.id_tutor}: {t.nombre_persona} - {t.id_persona}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-
             </div>
             <div className="flex justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  setOpenTutorDialog(false)
-                  setSelectedTutor('')
-                  setSelectedAula(null)
+                  setOpenTutorDialog(false);
+                  setSelectedTutor('');
+                  setSelectedAula(null);
                 }}
               >
                 Cancelar
@@ -730,7 +878,6 @@ export default function GestionAulas() {
           </form>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }

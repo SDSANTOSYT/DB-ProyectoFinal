@@ -330,10 +330,15 @@ class TutorIdResponse(BaseModel):
 
 class AulaSimple(BaseModel):
     id_aula: int
+    nombre_aula: Optional[str] = None
     grado: Optional[str] = None
     id_sede: Optional[int] = None
+    nombre_sede: Optional[str] = None
+    id_institucion: Optional[int] = None
+    nombre_institucion: Optional[str] = None
     id_programa: Optional[int] = None
     id_tutor: Optional[int] = None
+
 
 class AulasCountResponse(BaseModel):
     id_tutor: int
