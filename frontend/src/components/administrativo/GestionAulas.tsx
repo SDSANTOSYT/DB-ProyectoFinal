@@ -342,7 +342,7 @@ export default function GestionAulas() {
                     </SelectTrigger>
                     <SelectContent>
                       {instituciones.map((inst) => (
-                        <SelectItem key={inst.id_institucion} value={inst.id_institucion}>
+                        <SelectItem key={inst.id_institucion} value={inst.id_institucion.toString()}>
                           {inst.nombre}
                         </SelectItem>
                       ))}
@@ -359,7 +359,7 @@ export default function GestionAulas() {
                     </SelectTrigger>
                     <SelectContent>
                       {sedes.map((sede) => (
-                        <SelectItem key={sede.id_sede} value={sede.id_sede}>
+                        <SelectItem key={sede.id_sede} value={sede.id_sede.toString()}>
                           {sede.nombre_sede}
                         </SelectItem>
                       ))}
