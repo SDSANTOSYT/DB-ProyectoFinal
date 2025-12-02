@@ -58,20 +58,14 @@ def get_aulas_by_tutor(id_tutor: int):
     try:
         cur.execute(
             """
-            SELECT 
-                a.ID_AULA,
-                a.NOMBRE_AULA,
-                a.GRADO,
-                a.ID_SEDE,
-                s.NOMBRE_SEDE,
-                a.ID_INSTITUCION,
-                i.NOMBRE AS NOMBRE_INSTITUCION,
-                a.ID_PROGRAMA,
-                a.ID_TUTOR
+            SELECT ID_AULA, NOMBRE_AULA, GRADO, s.ID_SEDE, s.NOMBRE_SEDE, i.ID_INSTITUCION, i.NOMBRE , ID_PROGRAMA, ID_TUTOR
             FROM AULA a
-            JOIN SEDE s ON a.ID_SEDE = s.ID_SEDE
-            JOIN INSTITUCION i ON a.ID_INSTITUCION = i.ID_INSTITUCION
-            WHERE a.ID_TUTOR = :1
+            JOIN SEDE s 
+                ON a.ID_SEDE = s.ID_SEDE
+                AND a.ID_INSTITUCION = s.ID_INSTITUCION
+            JOIN INSTITUCION i
+                ON i.ID_INSTITUCION = a.ID_INSTITUCION
+            WHERE ID_TUTOR = :1
             ORDER BY a.ID_AULA
         """,
             (id_tutor,),
