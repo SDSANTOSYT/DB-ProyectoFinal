@@ -37,9 +37,7 @@ def get_aulas_by_tutor(id_tutor: int):
     try:
         conn = get_conn()
         cur = conn.cursor()
-        
-        logger.info(f"Asignando tutor {payload.id_tutor} al aula {payload.id_aula}")
-        
+                
         cur.execute("""
             SELECT ID_AULA, GRADO, ID_SEDE, ID_PROGRAMA, ID_TUTOR
             FROM AULA
