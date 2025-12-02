@@ -39,16 +39,12 @@ import {
   X,
 } from 'lucide-react';
 import {
-  aulas,
   instituciones,
   sedes,
   tutores,
-  getSedeById,
-  getInstitucionById,
-  getTutorById,
-  getEstudiantesByAula,
 } from '../../lib/mockData';
 import { toast } from 'sonner@2.0.3';
+import type { Aula, TutorInfo } from '../../lib/types';
 
 export default function GestionAulas() {
   const location = useLocation();
@@ -59,32 +55,78 @@ export default function GestionAulas() {
   const [filterGrado, setFilterGrado] = useState<string>('all');
   const [openDialog, setOpenDialog] = useState(false);
   const [openTutorDialog, setOpenTutorDialog] = useState(false);
-  const [openHorarioDialog, setOpenHorarioDialog] = useState(false);
   const [selectedAula, setSelectedAula] = useState<string | null>(null);
-  const [selectedGrado, setSelectedGrado] = useState<string | null>(null);
-  
+  const [selectedTutor, setSelectedTutor] = useState<string>('')
+  const [aulas, setAulas] = useState<Aula[]>([])
+  const [tutors, setTutors] = useState<TutorInfo[]>([])
+
   // Estado para el formulario de nueva aula
   const [newAulaGrado, setNewAulaGrado] = useState<string>('');
-  
-  // Estado para el formulario de horario
-  const [horarioFormData, setHorarioFormData] = useState({
-    dia_semana: '',
-    hora_inicio: '',
-    hora_fin: '',
-    duracion_minutos: '60'
-  });
+
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
+
+
+  const getAulas = async () => {
+    const url = `http://127.0.0.1:8000/aulas/`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!response.ok) {
+      console.log(response.statusText);
+      return [];
+    }
+
+    const aulasData = await response.json();
+    return aulasData as Aula[];
+  }
+
+  const getTutors = async () => {
+    const url = `http://127.0.0.1:8000/tutores/info`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!response.ok) {
+      console.log(response.statusText);
+      return [];
+    }
+
+    const tutoresData = await response.json();
+    return tutoresData as TutorInfo[];
+  };
+
+
+  useEffect(() => {
+    const obtenerAulas = async () => {
+      const data = await getAulas();
+      setAulas(data);
+    };
+    obtenerAulas();
+  }, []);
+
+  useEffect(() => {
+    const obtenerTutores = async () => {
+      const data = await getTutors();
+      setTutors(data);
+    };
+    obtenerTutores();
+  }, []);
 
   // Aplicar filtros desde la navegación
   useEffect(() => {
     if (location.state) {
       const { filterSede: sedeId, filterInstitucion: institucionId } = location.state as any;
-      
+
       if (institucionId) {
         setFilterInstitucion(institucionId);
         setActiveFilters(prev => [...prev, 'institucion']);
       }
-      
+
       if (sedeId) {
         setFilterSede(sedeId);
         setActiveFilters(prev => [...prev, 'sede']);
@@ -108,27 +150,27 @@ export default function GestionAulas() {
     toast.success('Filtros limpiados');
   };
 
-  const sedesFiltradas = filterInstitucion === 'all' 
-    ? sedes 
+  const sedesFiltradas = filterInstitucion === 'all'
+    ? sedes
     : sedes.filter(sede => sede.institucionId === filterInstitucion);
 
-  const filteredAulas = aulas.filter((aula) => {
-    const sede = getSedeById(aula.sedeId);
-    const institucion = sede ? getInstitucionById(sede.institucionId) : null;
-    const tutor = getTutorById(aula.tutorId);
+  const filteredAulas = aulas.filter(async (aula) => {
+    const sede = { id: aula.id_sede, nombre: aula.nombre_sede }
+    const institucion = { id: aula.id_institucion, nombre: aula.nombre_institucion }
+    const tutor = tutors.find((t) => t.id_tutor === aula.id_tutor)
 
     const matchesSearch =
-      aula.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tutor?.nombre.toLowerCase().includes(searchTerm.toLowerCase());
+      aula.nombre_aula.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      tutor?.nombre_persona.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesInstitucion =
-      filterInstitucion === 'all' || institucion?.id === filterInstitucion;
+      filterInstitucion === 'all' || institucion?.id.toString() === filterInstitucion;
 
     const matchesSede =
-      filterSede === 'all' || aula.sedeId === filterSede;
+      filterSede === 'all' || sede.id.toString() === filterSede;
 
     const matchesPrograma =
-      filterPrograma === 'all' || aula.programa === filterPrograma;
+      filterPrograma === 'all' || aula.id_programa.toString() === filterPrograma;
 
     const matchesGrado = filterGrado === 'all' || aula.grado === filterGrado;
 
@@ -143,63 +185,17 @@ export default function GestionAulas() {
 
   const handleChangeTutor = (e: React.FormEvent) => {
     e.preventDefault();
+
+
     toast.success('Tutor asignado exitosamente');
     setOpenTutorDialog(false);
   };
 
-  const handleUpdateHorario = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validar duración total según el grado
-    if (!selectedGrado) {
-      toast.error('No se ha seleccionado un grado');
-      return;
-    }
-    
-    const grado = parseInt(selectedGrado);
-    const maxHoras = (grado === 4 || grado === 5) ? 2 : 3;
-    const duracionMinutos = parseInt(horarioFormData.duracion_minutos);
-    
-    // Calcular duración en horas
-    const horasAsignadas = duracionMinutos / 60;
-    
-    // Validar hora de inicio y fin
-    if (horarioFormData.hora_inicio >= horarioFormData.hora_fin) {
-      toast.error('La hora de fin debe ser posterior a la hora de inicio');
-      return;
-    }
-    
-    // Validar horario entre 06:00 y 18:00
-    const horaInicio = parseInt(horarioFormData.hora_inicio.split(':')[0]);
-    const horaFin = parseInt(horarioFormData.hora_fin.split(':')[0]);
-    
-    if (horaInicio < 6 || horaFin > 18) {
-      toast.error('El horario debe estar entre las 06:00 y las 18:00');
-      return;
-    }
-    
-    // TODO: Aquí deberías sumar las horas ya existentes del aula
-    // Por ahora solo validamos la nueva sesión
-    if (horasAsignadas > maxHoras) {
-      toast.error(`Las aulas de ${grado}° grado pueden tener máximo ${maxHoras} horas semanales`);
-      return;
-    }
-    
-    toast.success('Horario actualizado exitosamente');
-    setOpenHorarioDialog(false);
-    setHorarioFormData({
-      dia_semana: '',
-      hora_inicio: '',
-      hora_fin: '',
-      duracion_minutos: '60'
-    });
-  };
-
-  const hasActiveFilters = filterInstitucion !== 'all' || 
-                          filterSede !== 'all' || 
-                          filterPrograma !== 'all' || 
-                          filterGrado !== 'all' || 
-                          searchTerm !== '';
+  const hasActiveFilters = filterInstitucion !== 'all' ||
+    filterSede !== 'all' ||
+    filterPrograma !== 'all' ||
+    filterGrado !== 'all' ||
+    searchTerm !== '';
 
   return (
     <div className="space-y-6">
@@ -232,7 +228,7 @@ export default function GestionAulas() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="aula-grado">Grado</Label>
-                  <Select 
+                  <Select
                     required
                     value={newAulaGrado}
                     onValueChange={setNewAulaGrado}
@@ -400,8 +396,8 @@ export default function GestionAulas() {
                   ))}
                 </SelectContent>
               </Select>
-              <Select 
-                value={filterSede} 
+              <Select
+                value={filterSede}
                 onValueChange={setFilterSede}
                 disabled={filterInstitucion === 'all'}
               >
@@ -440,14 +436,14 @@ export default function GestionAulas() {
                 </SelectContent>
               </Select>
             </div>
-            
+
             {hasActiveFilters && (
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
                   Filtros activos aplicados
                 </p>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="sm"
                   onClick={clearFilters}
                 >
@@ -474,33 +470,30 @@ export default function GestionAulas() {
                 <TableHead>Programa</TableHead>
                 <TableHead>Institución / Sede</TableHead>
                 <TableHead>Tutor</TableHead>
-                <TableHead>Horarios</TableHead>
-                <TableHead>Estudiantes</TableHead>
                 <TableHead>Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredAulas.map((aula) => {
-                const sede = getSedeById(aula.sedeId);
-                const institucion = sede ? getInstitucionById(sede.institucionId) : null;
-                const tutor = getTutorById(aula.tutorId);
-                const estudiantesCount = getEstudiantesByAula(aula.id).length;
+                const sede = { id: aula.id_sede, nombre: aula.nombre_sede }
+                const institucion = { id: aula.id_institucion, nombre: aula.nombre_institucion }
+                const tutor = tutors.find((t) => t.id_tutor === aula.id_tutor)
 
                 return (
-                  <TableRow key={aula.id}>
-                    <TableCell>{aula.nombre}</TableCell>
+                  <TableRow key={`${aula.id_aula}-${aula.id_sede}-${aula.id_institucion}`}>
+                    <TableCell>{aula.nombre_aula}</TableCell>
                     <TableCell>
                       <Badge variant="outline">{aula.grado}°</Badge>
                     </TableCell>
                     <TableCell>
                       <Badge
                         variant={
-                          aula.programa === 'INSIDECLASSROOM'
+                          aula.id_programa === 1
                             ? 'default'
                             : 'secondary'
                         }
                       >
-                        {aula.programa === 'INSIDECLASSROOM' ? 'Inside' : 'Outside'}
+                        {aula.id_programa === 1 ? 'Inside' : 'Outside'}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -509,41 +502,22 @@ export default function GestionAulas() {
                         <p className="text-xs text-muted-foreground">{sede?.nombre}</p>
                       </div>
                     </TableCell>
-                    <TableCell>{tutor?.nombre}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        <span className="text-sm">{aula.horarios.length} sesiones</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Users className="w-3 h-3" />
-                        <span className="text-sm">{estudiantesCount}</span>
-                      </div>
-                    </TableCell>
+                    <TableCell>{tutor ? tutor.nombre_persona : 'No hay tutor asignado'}</TableCell>
                     <TableCell>
                       <div className="flex gap-2">
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => {
-                            setSelectedAula(aula.id);
+                            setSelectedAula(JSON.stringify({
+                              id_aula: aula.id_aula,
+                              id_sede: aula.id_sede,
+                              id_institucion: aula.id_institucion
+                            }));
                             setOpenTutorDialog(true);
                           }}
                         >
                           <UserCog className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedAula(aula.id);
-                            setSelectedGrado(aula.grado);
-                            setOpenHorarioDialog(true);
-                          }}
-                        >
-                          <Calendar className="w-4 h-4" />
                         </Button>
                       </div>
                     </TableCell>
@@ -573,22 +547,21 @@ export default function GestionAulas() {
           <form onSubmit={handleChangeTutor} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="new-tutor">Nuevo Tutor</Label>
-              <Select required>
-                <SelectTrigger id="new-tutor">
+              <Select
+                value={selectedTutor}
+                onValueChange={(value: string) => setSelectedTutor(value)}
+                required>
+                <SelectTrigger id="id_tutor">
                   <SelectValue placeholder="Seleccionar tutor" />
                 </SelectTrigger>
                 <SelectContent>
-                  {tutores.map((tutor) => (
-                    <SelectItem key={tutor.id} value={tutor.id}>
-                      {tutor.nombre}
+                  {tutors.map((tutor) => (
+                    <SelectItem key={tutor.id_tutor} value={tutor.id_tutor.toString()}>
+                      Tutor {tutor.id_tutor}: {tutor.nombre_persona} - {tutor.id_persona}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="fecha-cambio">Fecha de Cambio</Label>
-              <Input id="fecha-cambio" type="date" required />
             </div>
             <div className="flex justify-end gap-2">
               <Button
@@ -604,125 +577,6 @@ export default function GestionAulas() {
         </DialogContent>
       </Dialog>
 
-      {/* Modify Schedule Dialog */}
-      <Dialog open={openHorarioDialog} onOpenChange={setOpenHorarioDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Modificar Horario</DialogTitle>
-            <DialogDescription>
-              Ajusta los horarios de clase para esta aula
-              {selectedGrado && (
-                <span className="block mt-2 text-sm font-medium">
-                  Grado {selectedGrado}° - Máximo {(selectedGrado === '4' || selectedGrado === '5') ? '2' : '3'} horas semanales
-                </span>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleUpdateHorario} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="dia-semana">Día de la Semana</Label>
-              <Select 
-                value={horarioFormData.dia_semana}
-                onValueChange={(value) => setHorarioFormData(prev => ({ ...prev, dia_semana: value }))}
-                required
-              >
-                <SelectTrigger id="dia-semana">
-                  <SelectValue placeholder="Seleccionar día" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Lunes">Lunes</SelectItem>
-                  <SelectItem value="Martes">Martes</SelectItem>
-                  <SelectItem value="Miércoles">Miércoles</SelectItem>
-                  <SelectItem value="Jueves">Jueves</SelectItem>
-                  <SelectItem value="Viernes">Viernes</SelectItem>
-                  {(selectedGrado === '9' || selectedGrado === '10') && (
-                    <SelectItem value="Sábado">Sábado</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-              {(selectedGrado === '4' || selectedGrado === '5') && (
-                <p className="text-xs text-muted-foreground">
-                  Los grados 4° y 5° solo tienen clases de lunes a viernes
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="duracion-clase">Duración de la Clase</Label>
-              <Select 
-                value={horarioFormData.duracion_minutos}
-                onValueChange={(value) => setHorarioFormData(prev => ({ ...prev, duracion_minutos: value }))}
-                required
-              >
-                <SelectTrigger id="duracion-clase">
-                  <SelectValue placeholder="Seleccionar duración" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="40">40 minutos</SelectItem>
-                  <SelectItem value="45">45 minutos</SelectItem>
-                  <SelectItem value="50">50 minutos</SelectItem>
-                  <SelectItem value="55">55 minutos</SelectItem>
-                  <SelectItem value="60">60 minutos (1 hora)</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Equivalente a 1 hora para los reportes
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="hora-inicio">Hora Inicio</Label>
-                <Input 
-                  id="hora-inicio" 
-                  type="time" 
-                  value={horarioFormData.hora_inicio}
-                  onChange={(e) => setHorarioFormData(prev => ({ ...prev, hora_inicio: e.target.value }))}
-                  min="06:00"
-                  max="18:00"
-                  required 
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="hora-fin">Hora Fin</Label>
-                <Input 
-                  id="hora-fin" 
-                  type="time" 
-                  value={horarioFormData.hora_fin}
-                  onChange={(e) => setHorarioFormData(prev => ({ ...prev, hora_fin: e.target.value }))}
-                  min="06:00"
-                  max="18:00"
-                  required 
-                />
-              </div>
-            </div>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-sm text-blue-800">
-                <strong>Horario permitido:</strong> 06:00 - 18:00
-              </p>
-              <p className="text-sm text-blue-800 mt-1">
-                <strong>Límite semanal:</strong> {(selectedGrado === '4' || selectedGrado === '5') ? '2' : '3'} horas máximo
-              </p>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setOpenHorarioDialog(false);
-                  setHorarioFormData({
-                    dia_semana: '',
-                    hora_inicio: '',
-                    hora_fin: '',
-                    duracion_minutos: '60'
-                  });
-                }}
-              >
-                Cancelar
-              </Button>
-              <Button type="submit">Guardar Horario</Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

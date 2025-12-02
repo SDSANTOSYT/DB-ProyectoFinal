@@ -11,7 +11,7 @@ export interface AulaInfo{
 
 export interface Aula {
   id_aula: number
-  nombre: string
+  nombre_aula: string
   grado: string
   id_sede: number
   nombre_sede: string
@@ -32,6 +32,12 @@ export interface User {
 export interface Tutor {
   id_tutor: number;
   id_persona: number,
+}
+
+export interface TutorInfo {
+  id_tutor: number;
+  id_persona: number,
+  nombre_persona: string
 }
 
 export interface Horario {

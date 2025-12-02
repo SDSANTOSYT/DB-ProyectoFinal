@@ -166,16 +166,36 @@ export default function GestionEstudiantes() {
     setOpenDialog(false);
   };
 
-  const handleMoveEstudiante = (e: React.FormEvent) => {
+  const handleMoveEstudiante = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const student = estudiantes.find((e) => e.id_estudiante === selectedStudent);
-    const newAula = aulas.find((a) => a.id_aula.toString() === targetAula);
+    const newAulaInfo = JSON.parse(targetAula)
+
+    const newAula = aulas.find((a) => a.id_aula === newAulaInfo.id_aula && a.id_sede === newAulaInfo.id_sede && a.id_institucion === newAulaInfo.id_institucion);
 
     if (student && newAula && student.grado !== newAula.grado) {
       toast.error('El estudiante no puede moverse a un aula de diferente grado');
       return;
     }
+
+    const url = `http://127.0.0.1:8000/estudiantes/${student?.id_estudiante}/cambiar-aula`
+
+    const payload = { id_aula: newAula?.id_aula, id_sede: newAula?.id_sede, id_institucion: newAula?.id_institucion }
+
+    const response = await fetch(url, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      return
+    }
+
+    const estudiantesData = await getEstudiantes()
+
+    setEstudiantes(estudiantesData)
 
     toast.success('Estudiante movido exitosamente');
     setOpenMoveDialog(false);
@@ -183,7 +203,7 @@ export default function GestionEstudiantes() {
     setTargetAula('');
   };
 
-  const handleScoreEstudiante = (e: React.FormEvent) => {
+  const handleScoreEstudiante = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const student = estudiantes.find((e) => e.id_estudiante === selectedStudent);
@@ -194,12 +214,26 @@ export default function GestionEstudiantes() {
       return;
     }
 
+    const url = `http://127.0.0.1:8000/estudiantes/${student?.id_estudiante}/score-final`
+    const response = await fetch(url, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ score_final: score_final })
+    });
+
+    if (!response.ok) {
+      return
+    }
+
+    const estudiantesData = await getEstudiantes()
+
+    setEstudiantes(estudiantesData)
+
     // Hacer fetch para poner el score
 
     toast.success('Score final ingresado exitosamente');
     setOpenScoreDialog(false);
     setSelectedStudent(null);
-    setTargetAula('');
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -555,8 +589,13 @@ export default function GestionEstudiantes() {
                           .map((aula) => {
                             const institucion = { id: aula.id_institucion, nombre: aula.nombre_institucion }
                             return (
-                              <SelectItem key={aula.id_aula} value={aula.id_aula}>
-                                {aula.nombre} - {institucion?.nombre}
+                              <SelectItem key={`${aula.id_aula}-${aula.id_sede}-${aula.id_institucion}`}
+                                value={JSON.stringify({
+                                  id_aula: aula.id_aula,
+                                  id_sede: aula.id_sede,
+                                  id_institucion: aula.id_institucion
+                                })}>
+                                {aula.nombre_aula} - {institucion?.nombre}
                               </SelectItem>
                             );
                           })}
@@ -565,15 +604,15 @@ export default function GestionEstudiantes() {
                   </div>
 
                   {targetAula && (() => {
-                    const newAula = aulas.find((a) => a.id_aula.toString() === targetAula);
-                    const newSede = { id: newAula?.id_aula, nombre: newAula?.nombre };
+                    const newAula = aulas.find((a) => a.id_aula === JSON.parse(targetAula).id_aula && a.id_sede === JSON.parse(targetAula).id_sede && a.id_institucion === JSON.parse(targetAula).id_institucion);
+                    const newSede = { id: newAula?.id_aula, nombre: newAula?.nombre_sede };
                     const newInstitucion = { id: newAula?.id_institucion, nombre: newAula?.nombre_institucion }
 
                     return (
                       <Alert>
                         <CheckCircle className="h-4 w-4" />
                         <AlertDescription>
-                          <p>Aula destino: {newAula?.nombre}</p>
+                          <p>Aula destino: {newAula?.nombre_aula}</p>
                           <p>Institución: {newInstitucion?.nombre}</p>
                           <p>Sede: {newSede?.nombre}</p>
                           <p>Programa: {!newAula ? 'SIN PROGRAMA' : newAula.id_programa === 1 ? 'INSIDECLASSROOM' : 'OUTSIDECLASSROOM'}</p>

@@ -263,7 +263,7 @@ def cambiar_aula_estudiante(id_estudiante: int, payload: CambiarAulaRequest):
         """, (id_estudiante,))
         
         if not cur.fetchone():
-            logger.warning(f"Estudiante {id_estudiante} no encontrado")
+            logger.error(f"Estudiante {id_estudiante} no encontrado")
             raise HTTPException(
                 status_code=404, 
                 detail=f"Estudiante con ID {id_estudiante} no encontrado"
@@ -273,11 +273,11 @@ def cambiar_aula_estudiante(id_estudiante: int, payload: CambiarAulaRequest):
         cur.execute("""
             SELECT id_aula 
             FROM aula 
-            WHERE id_aula = :1 AND id_sede = :2
-        """, (payload.id_aula, payload.id_sede))
+            WHERE id_aula = :1 AND id_sede = :2 AND id_institucion = :3
+        """, (payload.id_aula, payload.id_sede, payload.id_institucion))
         
         if not cur.fetchone():
-            logger.warning(f"Aula {payload.id_aula} en sede {payload.id_sede} no encontrada")
+            logger.error(f"Aula {payload.id_aula} en sede {payload.id_sede} no encontrada")
             raise HTTPException(
                 status_code=404, 
                 detail=f"Aula {payload.id_aula} no existe en la sede {payload.id_sede}"
