@@ -364,24 +364,87 @@ def crear_tutor(payload: TutorCreate):
         conn.close()
 
 
-# 11) Eliminar tutor
-@router.delete("/{id_tutor}", response_model=TutorDeleteResponse)
-def eliminar_tutor(id_tutor: int):
-    conn = get_conn()
-    cur = conn.cursor()
+# 11) Eliminar tutor 
+@router.delete("/{id_tutor}", response_model=dict)
+def eliminar_tutor(id_tutor: int, force: Optional[bool] = Query(False, description="Si true borra dependencias y luego el tutor")):
+    """
+    Elimina un tutor.
+    - Si force=False (default): verifica dependencias y rechaza si existen (400).
+    - Si force=True: borra asistencias y notas relacionadas, desvincula aulas (o las actualiza), 
+      y finalmente borra el tutor (todo dentro de una transacción).
+    """
+    conn = None
+    cur = None
+
     try:
+        conn = get_conn()
+        cur = conn.cursor()
+
+        # 1) comprobar existencia del tutor
+        cur.execute("SELECT 1 FROM TUTOR WHERE ID_TUTOR = :1", (id_tutor,))
+        if cur.fetchone() is None:
+            raise HTTPException(status_code=404, detail="Tutor no encontrado")
+
+        # 2) contar dependencias importantes
+        dep_counts = {}
+        # asistencias de tutor
+        cur.execute("SELECT COUNT(1) FROM ASISTENCIA_AULA_TUTOR WHERE ID_TUTOR = :1", (id_tutor,))
+        dep_counts['asistencias_tutor'] = cur.fetchone()[0]
+        # notas que apuntan al tutor
+        cur.execute("SELECT COUNT(1) FROM NOTA WHERE ID_TUTOR = :1", (id_tutor,))
+        dep_counts['notas'] = cur.fetchone()[0]
+        # aulas que tienen ese tutor asignado
+        cur.execute("SELECT COUNT(1) FROM AULA WHERE ID_TUTOR = :1", (id_tutor,))
+        dep_counts['aulas_asignadas'] = cur.fetchone()[0]
+
+        if not force:
+            # si no pedimos force, rechazamos si hay dependencias
+            nonzero = {k: v for k, v in dep_counts.items() if v and v > 0}
+            if nonzero:
+                # mensaje detallado para el frontend
+                detail = {
+                    "error": "Existen dependencias. Usa ?force=true para forzar eliminado (pierde datos).",
+                    "dependencias": nonzero
+                }
+                raise HTTPException(status_code=400, detail=detail)
+
+            # si no hay dependencias, borrar normalmente
+            cur.execute("DELETE FROM TUTOR WHERE ID_TUTOR = :1", (id_tutor,))
+            if cur.rowcount == 0:
+                raise HTTPException(status_code=500, detail="Error al eliminar tutor (sin filas afectadas)")
+            conn.commit()
+            return {"id_tutor": id_tutor, "mensaje": "Tutor eliminado correctamente (sin dependencias)"}
+
+        # -----------------------
+        # Si force == True -> borrar/desvincular dependencias dentro de la transacción
+        # -----------------------
+        logger.info(f"Eliminación FORZADA del tutor {id_tutor} iniciada por usuario")
+
+        # 3a) borrar asistencias del tutor
+        cur.execute("DELETE FROM ASISTENCIA_AULA_TUTOR WHERE ID_TUTOR = :1", (id_tutor,))
+        cant_asistencias = cur.rowcount
+
+        # 3b) borrar/actualizar notas (opción: borrarlas)
+        cur.execute("DELETE FROM NOTA WHERE ID_TUTOR = :1", (id_tutor,))
+        cant_notas = cur.rowcount
+
+        # 3c) desvincular el tutor de las aulas (poner NULL en ID_TUTOR)
+        cur.execute("UPDATE AULA SET ID_TUTOR = NULL WHERE ID_TUTOR = :1", (id_tutor,))
+        cant_aulas_actualizadas = cur.rowcount
+
+        # 3d) por si hay otras tablas relacionadas, añadir aquí más deletes/updates
+
+        # 4) finalmente borrar el tutor
         cur.execute("DELETE FROM TUTOR WHERE ID_TUTOR = :1", (id_tutor,))
         if cur.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Tutor no encontrado")
-        conn.commit()
-        return {
-            "id_tutor": id_tutor,
-            "mensaje": "Tutor eliminado correctamente",
-        }
-    finally:
-        cur.close()
-        conn.close()
+            # esto no debería pasar después de los pasos anteriores, pero lo verificamos
+            conn.rollback()
+            raise HTTPException(status_code=500, detail="No se pudo borrar el tutor incluso tras borrar dependencias")
 
+        conn.commit()
+        return {"id_tutor": id_tutor, "mensaje": "Tutor eliminado correctamente"}
+    finally:
+        cur.close(); conn.close()
 
 # 12) Desvincular persona de tutor
 @router.put("/{id_tutor}/desvincular-persona", response_model=TutorUnlinkResponse)
