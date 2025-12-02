@@ -118,9 +118,8 @@ const generarEventosRecurrentes = (
 
       const evento = {
         id: `${horario.id_horario}-sem${semana}`,
-        title: `${horario.nombre_aula || 'Aula'} - ${horario.grado}°\n${
-          horario.nombre_tutor || 'Sin tutor'
-        }`,
+        title: `${horario.nombre_aula || 'Aula'} - ${horario.grado}°\n${horario.nombre_tutor || 'Sin tutor'
+          }`,
         start: Temporal.ZonedDateTime.from(inicioISO),
         end: Temporal.ZonedDateTime.from(finISO),
       };

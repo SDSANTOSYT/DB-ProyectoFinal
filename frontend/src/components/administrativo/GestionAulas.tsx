@@ -31,11 +31,7 @@ import { Badge } from '../ui/badge';
 import {
   Plus,
   Search,
-  Edit,
-  Users,
-  Calendar,
   UserCog,
-  Clock,
   X,
 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
@@ -225,11 +221,42 @@ export default function GestionAulas() {
     return matchesSearch && matchesInstitucion && matchesSede && matchesPrograma && matchesGrado;
   });
 
-  const handleCreateAula = (e: React.FormEvent) => {
+  const handleCreateAula = async (e: React.FormEvent) => {
 
     e.preventDefault();
-    toast.success('Aula creada exitosamente');
-    setOpenDialog(false);
+
+    console.log(formData)
+    const payload = {
+      nombre_aula: formData.nombre_aula,
+      grado: formData.grado,
+      id_sede: Number(formData.id_sede),
+      id_institucion: Number(formData.id_institucion),
+      id_programa: Number(formData.id_programa),
+      id_tutor: formData.id_tutor === 'none' ? null : Number(formData.id_tutor)
+    }
+
+    const res = await fetch("http://127.0.0.1:8000/aulas/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (res.ok) {
+      toast.success('Aula creada exitosamente');
+      const aulasData = await getAulas()
+      setAulas(aulasData)
+      setOpenDialog(false);
+      setFormData({
+        nombre_aula: '',
+        grado: '',
+        id_sede: '',
+        id_institucion: '',
+        id_programa: '',
+        id_tutor: ''
+      })
+    } else {
+      toast.error("Error al crear el aula");
+    }
   };
 
   const handleChangeTutor = async (e: React.FormEvent) => {
@@ -247,7 +274,7 @@ export default function GestionAulas() {
     };
 
 
-    const res = await fetch("http://127.0.0.1:8000/aulas/asignar-tutor", {
+    const res = await fetch("http://127.0.0.1:8000/tutores/asignar-aula", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -258,6 +285,7 @@ export default function GestionAulas() {
       const aulasData = await getAulas()
       setAulas(aulasData)
       setOpenTutorDialog(false);
+      setSelectedTutor('')
     } else {
       toast.error("Error al asignar el tutor");
     }
@@ -267,6 +295,23 @@ export default function GestionAulas() {
     setFormData(prev => ({ ...prev, id_institucion: value, id_sede: '' }))
     const sedes = await getSedesById(Number(value))
     setSedes(sedes)
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [id]: value
+    }));
+  };
+
+  const handleChangeGrade = (value: string) => {
+    if ((value === '4' || value === '5')) {
+      setFormData(prev => ({ ...prev, grado: value, id_programa: '1' }))
+    } else if ((value === '9' || value === '10')) {
+      setFormData(prev => ({ ...prev, grado: value, id_programa: '2' }))
+    }
+
   }
 
   const hasActiveFilters = filterInstitucion !== 'all' ||
@@ -302,23 +347,26 @@ export default function GestionAulas() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="nombre_aula">Nombre del Aula</Label>
-                  <Input id="nombre_aula" placeholder="Ej: Aula 4A" required />
+                  <Input id="nombre_aula" placeholder="Ej: Aula 4A"
+                    value={formData.nombre_aula}
+                    onChange={handleInputChange}
+                    required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="grado">Grado</Label>
                   <Select
                     required
                     value={formData.grado}
-                    onValueChange={(value: string) => { setFormData(prev => ({ ...prev, grado: value })) }}
+                    onValueChange={(value: string) => { handleChangeGrade(value) }}
                   >
                     <SelectTrigger id="grado">
                       <SelectValue placeholder="Seleccionar grado" />
                     </SelectTrigger>
                     <SelectContent>
-                      {(formData.id_programa === '' || formData.id_programa === '1') && <SelectItem value="4">4°</SelectItem>}
-                      {(formData.id_programa === '' || formData.id_programa === '1') && <SelectItem value="5">5°</SelectItem>}
-                      {(formData.id_programa === '' || formData.id_programa === '2') && <SelectItem value="9">9°</SelectItem>}
-                      {(formData.id_programa === '' || formData.id_programa === '2') && <SelectItem value="10">10°</SelectItem>}
+                      <SelectItem value="4">4°</SelectItem>
+                      <SelectItem value="5">5°</SelectItem>
+                      <SelectItem value="9">9°</SelectItem>
+                      <SelectItem value="10">10°</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -374,7 +422,10 @@ export default function GestionAulas() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="id_sede">Sede</Label>
-                  <Select required>
+                  <Select
+                    value={formData.id_sede}
+                    onValueChange={(value: string) => { setFormData(prev => ({ ...prev, id_sede: value })) }}
+                    required>
                     <SelectTrigger id="id_sede">
                       <SelectValue placeholder="Seleccionar sede" />
                     </SelectTrigger>
@@ -389,13 +440,19 @@ export default function GestionAulas() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="id_tutor">Tutor Asignado</Label>
-                  <Select required>
+                  <Select
+                    value={formData.id_tutor}
+                    onValueChange={(value: string) => { setFormData(prev => ({ ...prev, id_tutor: value })) }}
+                    required>
                     <SelectTrigger id="id_tutor">
                       <SelectValue placeholder="Seleccionar tutor" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem key={'Ninguno'} value={'none'}>
+                        Ninguno
+                      </SelectItem>
                       {tutors.map((tutor) => (
-                        <SelectItem key={tutor.id_tutor} value={tutor.id_tutor}>
+                        <SelectItem key={tutor.id_tutor} value={tutor.id_tutor.toString()}>
                           {tutor.nombre_persona}
                         </SelectItem>
                       ))}
