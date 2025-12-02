@@ -29,14 +29,14 @@ export default function LoginPage() {
 
   const quickLogin = (role: string) => {
     if (role === 'admin') {
-      setEmail('admin@globalenglish.com');
-      setPassword('admin123');
+      setEmail('admin@sistema.com');
+      setPassword('3');
     } else if (role === 'administrativo') {
-      setEmail('admin2@globalenglish.com');
-      setPassword('admin123');
+      setEmail('maria.gomez@estudiantes.com');
+      setPassword('2');
     } else if (role === 'tutor') {
-      setEmail('tutor@globalenglish.com');
-      setPassword('tutor123');
+      setEmail('juan.perez@educacion.com');
+      setPassword('1');
     }
   };
 
