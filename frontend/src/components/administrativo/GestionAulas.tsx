@@ -305,7 +305,7 @@ export default function GestionAulas() {
     };
 
     // Según aula.py, el endpoint correcto es /aulas/asignar-tutor
-    const res = await fetch(`${API_URL}/aulas/asignar-tutor`, {
+    const res = await fetch(`${API_URL}/tutores/asignar-aula`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
