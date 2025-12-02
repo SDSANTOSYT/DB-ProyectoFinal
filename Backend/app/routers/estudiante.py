@@ -4,7 +4,7 @@ from typing import List, Optional
 import oracledb
 import logging
 from ..db import get_conn
-from ..schemas import EstudianteCreate, EstudianteRead
+from ..schemas import ActualizarScoreFinalRequest, CambiarAulaRequest, EstudianteCreate, EstudianteInfoRead, EstudianteRead
 from ..utils import get_current_user
 
 # Configurar logging
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/estudiantes", tags=["estudiantes"])
 
 
 @router.post("/", response_model=EstudianteRead)
-def create_estudiante(payload: EstudianteCreate, user=Depends(get_current_user)):
+def create_estudiante(payload: EstudianteCreate):
     """
     Crea un nuevo estudiante en el sistema.
     """
@@ -25,25 +25,27 @@ def create_estudiante(payload: EstudianteCreate, user=Depends(get_current_user))
         conn = get_conn()
         cur = conn.cursor()
         
-        logger.info(f"Creando estudiante para persona {payload.id_persona}")
+        logger.info(f"Creando estudiante con documento {payload.id_estudiante}")
         
         # Insertar el estudiante 
         cur.execute("""
-            INSERT INTO estudiante (id_persona, id_aula, grado, score_inicial)
-            VALUES (:1, :2, :3, :4)
-        """, (payload.id_persona, payload.id_aula, payload.grado, payload.score_inicial))
+            INSERT INTO estudiante (id_estudiante, tipo_documento, nombre, grado, score_inicial, id_aula, id_sede, id_institucion)
+            VALUES (:1, :2, :3, :4, :5, :6, :7, :8)
+        """, (payload.id_estudiante, payload.tipo_documento, payload.nombre, payload.grado, payload.score_inicial, payload.id_aula, payload.id_sede, payload.id_institucion))
         
         conn.commit()
         
+        #TIPO_DOCUMENTO, NOMBRE, GRADO, SCORE_INICIAL, ID_AULA, ID_SEDE, ID_INSTITUCION
+
         # Obtener el ID generado 
         cur2 = conn.cursor()
         cur2.execute("""
-            SELECT id_estudiante 
+            SELECT id_estudiante, score_final
             FROM estudiante 
-            WHERE id_persona = :1 
+            WHERE id_estudiante = :1 
             ORDER BY id_estudiante DESC 
             FETCH FIRST 1 ROW ONLY
-        """, (payload.id_persona,))
+        """, (payload.id_estudiante,))
         
         r = cur2.fetchone()
         
@@ -58,10 +60,14 @@ def create_estudiante(payload: EstudianteCreate, user=Depends(get_current_user))
         
         return {
             "id_estudiante": r[0], 
-            "id_persona": payload.id_persona, 
-            "id_aula": payload.id_aula, 
+            "tipo_documento": payload.tipo_documento, 
+            "nombre": payload.nombre,
             "grado": payload.grado, 
-            "score_inicial": payload.score_inicial
+            "score_inicial": payload.score_inicial,
+            "score_final": r[1],
+            "id_aula": payload.id_aula, 
+            "id_sede": payload.id_sede,
+            "id_institucion": payload.id_institucion
         }
         
     except HTTPException:
@@ -108,7 +114,7 @@ def create_estudiante(payload: EstudianteCreate, user=Depends(get_current_user))
 
 
 @router.get("/{id_estudiante}", response_model=EstudianteRead)
-def get_estudiante(id_estudiante: int, user=Depends(get_current_user)):
+def get_estudiante(id_estudiante: int):
     """
     Obtiene un estudiante por su ID.
     """
@@ -122,7 +128,7 @@ def get_estudiante(id_estudiante: int, user=Depends(get_current_user)):
         logger.info(f"Consultando estudiante {id_estudiante}")
         
         cur.execute("""
-            SELECT id_estudiante, id_persona, id_aula, grado, score_inicial, score_final 
+            SELECT id_estudiante, tipo_documento, nombre, grado, score_inicial, score_final, id_aula, id_sede, id_institucion
             FROM estudiante 
             WHERE id_estudiante = :1
         """, (id_estudiante,))
@@ -134,13 +140,16 @@ def get_estudiante(id_estudiante: int, user=Depends(get_current_user)):
             raise HTTPException(404, "Estudiante no encontrado")
         
         return {
-            "id_estudiante": r[0], 
-            "id_persona": r[1], 
-            "id_aula": r[2], 
-            "grado": r[3], 
-            "score_inicial": r[4], 
-            "score_final": r[5]
-        }
+                "id_estudiante": r[0],
+                "tipo_documento": r[1],
+                "nombre": r[2],
+                "grado": r[3],
+                "score_inicial": r[4],
+                "score_final": r[5],
+                "id_aula": r[6],
+                "id_sede": r[7],
+                "id_institucion": r[8]
+            } 
         
     except HTTPException:
         raise
@@ -166,8 +175,8 @@ def get_estudiante(id_estudiante: int, user=Depends(get_current_user)):
             conn.close()
 
 
-@router.get("/", response_model=List[EstudianteRead])
-def list_estudiantes(limit: int = 100, user=Depends(get_current_user)):
+@router.get("/", response_model=List[EstudianteInfoRead])
+def list_estudiantes(limit: int = 100):
     """
     Lista estudiantes (mantiene la misma firma del original).
     """
@@ -180,22 +189,35 @@ def list_estudiantes(limit: int = 100, user=Depends(get_current_user)):
         
         logger.info(f"Listando estudiantes con límite {limit}")
         
+        # TIPO_DOCUMENTO, NOMBRE, GRADO, SCORE_INICIAL, ID_AULA, ID_SEDE
+
         cur.execute("""
-            SELECT id_estudiante, id_persona, id_aula, grado, score_inicial, score_final 
-            FROM estudiante 
-            WHERE ROWNUM <= :1
+            SELECT id_estudiante, tipo_documento, e.nombre, e.grado, e.score_inicial, 
+                e.score_final, a.id_aula, a.nombre_aula, s.id_sede, s.nombre_sede, 
+                i.id_institucion, i.nombre
+            FROM estudiante e 
+            LEFT JOIN institucion i ON e.id_institucion = i.id_institucion 
+            LEFT JOIN sede s ON e.id_sede = s.id_sede
+            LEFT JOIN aula a ON a.id_aula = e.id_aula
+            FETCH FIRST :1 ROWS ONLY
         """, (limit,))
         
         rows = cur.fetchall()
         
         return [
             {
-                "id_estudiante": r[0], 
-                "id_persona": r[1], 
-                "id_aula": r[2], 
-                "grado": r[3], 
-                "score_inicial": r[4], 
-                "score_final": r[5]
+                "id_estudiante": r[0],
+                "tipo_documento": r[1],
+                "nombre": r[2],
+                "grado": r[3],
+                "score_inicial": r[4],
+                "score_final": r[5],
+                "id_aula": r[6],
+                "nombre_aula": r[7],
+                "id_sede": r[8],
+                "nombre_sede": r[9],
+                "id_institucion": r[10],
+                "nombre_institucion": r[11]
             } 
             for r in rows
         ]
@@ -209,6 +231,240 @@ def list_estudiantes(limit: int = 100, user=Depends(get_current_user)):
         
     except Exception as e:
         logger.error(f"Error inesperado al listar estudiantes: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Error interno del servidor"
+        )
+        
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+@router.put("/{id_estudiante}/cambiar-aula", response_model=EstudianteRead)
+def cambiar_aula_estudiante(id_estudiante: int, payload: CambiarAulaRequest):
+     
+
+    conn = None
+    cur = None
+    
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        
+        logger.info(f"Cambiando estudiante {id_estudiante} a aula {payload.id_aula}")
+        
+        # Verificar que el estudiante existe
+        cur.execute("""
+            SELECT id_estudiante 
+            FROM estudiante 
+            WHERE id_estudiante = :1
+        """, (id_estudiante,))
+        
+        if not cur.fetchone():
+            logger.error(f"Estudiante {id_estudiante} no encontrado")
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Estudiante con ID {id_estudiante} no encontrado"
+            )
+        
+        # Verificar que la combinación aula-sede-institución existe
+        cur.execute("""
+            SELECT id_aula 
+            FROM aula 
+            WHERE id_aula = :1 AND id_sede = :2 AND id_institucion = :3
+        """, (payload.id_aula, payload.id_sede, payload.id_institucion))
+        
+        if not cur.fetchone():
+            logger.error(f"Aula {payload.id_aula} en sede {payload.id_sede} no encontrada")
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Aula {payload.id_aula} no existe en la sede {payload.id_sede}"
+            )
+        
+        # Actualizar el estudiante
+        cur.execute("""
+            UPDATE estudiante 
+            SET id_aula = :1, id_sede = :2, id_institucion = :3
+            WHERE id_estudiante = :4
+        """, (payload.id_aula, payload.id_sede, payload.id_institucion, id_estudiante))
+        
+        if cur.rowcount == 0:
+            raise HTTPException(
+                status_code=500,
+                detail="No se pudo actualizar el estudiante"
+            )
+        
+        conn.commit()
+        
+        logger.info(f"Estudiante {id_estudiante} cambiado exitosamente a aula {payload.id_aula}")
+        
+        # Obtener y devolver el estudiante actualizado
+        cur.execute("""
+            SELECT id_estudiante, tipo_documento, nombre, grado, 
+                   score_inicial, score_final, id_aula, id_sede, id_institucion
+            FROM estudiante 
+            WHERE id_estudiante = :1
+        """, (id_estudiante,))
+        
+        r = cur.fetchone()
+        
+        if not r:
+            raise HTTPException(
+                status_code=500,
+                detail="Error al recuperar el estudiante actualizado"
+            )
+        
+        return {
+            "id_estudiante": r[0],
+            "tipo_documento": r[1],
+            "nombre": r[2],
+            "grado": r[3],
+            "score_inicial": r[4],
+            "score_final": r[5],
+            "id_aula": r[6],
+            "id_sede": r[7],
+            "id_institucion": r[8]
+        }
+        
+    except HTTPException:
+        if conn:
+            conn.rollback()
+        raise
+        
+    except oracledb.IntegrityError as e:
+        if conn:
+            conn.rollback()
+        logger.error(f"Error de integridad al cambiar aula: {str(e)}")
+        raise HTTPException(
+            status_code=400,
+            detail="Error de integridad de datos. Verifique que el aula, sede e institución existen y están relacionadas correctamente."
+        )
+        
+    except oracledb.DatabaseError as e:
+        if conn:
+            conn.rollback()
+        logger.error(f"Error de base de datos al cambiar aula: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Error en la base de datos"
+        )
+        
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        logger.error(f"Error inesperado al cambiar aula: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Error interno del servidor"
+        )
+        
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+@router.put("/{id_estudiante}/score-final", response_model=EstudianteRead)
+def actualizar_score_final(id_estudiante: int, payload: ActualizarScoreFinalRequest):
+    """
+    Actualiza el score final de un estudiante.
+    """
+    conn = None
+    cur = None
+    
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        
+        logger.info(f"Actualizando score final del estudiante {id_estudiante} a {payload.score_final}")
+        
+        # Verificar que el estudiante existe
+        cur.execute("""
+            SELECT id_estudiante 
+            FROM estudiante 
+            WHERE id_estudiante = :1
+        """, (id_estudiante,))
+        
+        if not cur.fetchone():
+            logger.warning(f"Estudiante {id_estudiante} no encontrado")
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Estudiante con ID {id_estudiante} no encontrado"
+            )
+        
+        # Validar que el score_final sea válido (opcional, según tus reglas de negocio)
+        if payload.score_final < 0:
+            raise HTTPException(
+                status_code=400,
+                detail="El score final no puede ser negativo"
+            )
+        
+        # Actualizar el score final
+        cur.execute("""
+            UPDATE estudiante 
+            SET score_final = :1
+            WHERE id_estudiante = :2
+        """, (payload.score_final, id_estudiante))
+        
+        if cur.rowcount == 0:
+            raise HTTPException(
+                status_code=500,
+                detail="No se pudo actualizar el score final"
+            )
+        
+        conn.commit()
+        
+        logger.info(f"Score final del estudiante {id_estudiante} actualizado exitosamente")
+        
+        # Obtener y devolver el estudiante actualizado
+        cur.execute("""
+            SELECT id_estudiante, tipo_documento, nombre, grado, 
+                   score_inicial, score_final, id_aula, id_sede, id_institucion
+            FROM estudiante 
+            WHERE id_estudiante = :1
+        """, (id_estudiante,))
+        
+        r = cur.fetchone()
+        
+        if not r:
+            raise HTTPException(
+                status_code=500,
+                detail="Error al recuperar el estudiante actualizado"
+            )
+        
+        return {
+            "id_estudiante": r[0],
+            "tipo_documento": r[1],
+            "nombre": r[2],
+            "grado": r[3],
+            "score_inicial": r[4],
+            "score_final": r[5],
+            "id_aula": r[6],
+            "id_sede": r[7],
+            "id_institucion": r[8]
+        }
+        
+    except HTTPException:
+        if conn:
+            conn.rollback()
+        raise
+        
+    except oracledb.DatabaseError as e:
+        if conn:
+            conn.rollback()
+        logger.error(f"Error de base de datos al actualizar score final: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Error en la base de datos"
+        )
+        
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        logger.error(f"Error inesperado al actualizar score final: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail="Error interno del servidor"

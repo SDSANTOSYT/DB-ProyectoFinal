@@ -34,32 +34,40 @@ class SedeRead(BaseModel):
 
 # Aula: incluimos campos de ambas variantes 
 class AulaCreate(BaseModel):
-    id_aula: int
+    nombre_aula: Optional[str] = None
     grado: Optional[str] = None
-    nombre_aula: str
     id_sede: int
-    id_tutor: Optional[int] = None
-    id_programa: Optional[int] = None
     id_institucion: int
-    capacidad: Optional[int] = None
+    id_programa: Optional[int] = None
+    id_tutor: Optional[int] = None
 
 class AulaUpdate(BaseModel):
     id_aula: int
     nombre_aula: Optional[str] = None
     grado: Optional[str] = None
-    id_sede: Optional[int] = None
+    id_sede: int
+    nombre_sede: Optional[str] = None
+    id_institucion: int
+    nombre_institucion: Optional[str] = None
+    id_programa: int
     id_tutor: Optional[int] = None
-    id_programa: Optional[int] = None
-    id_institucion: Optional[int] = None
 
 class AulaResponse(AulaCreate):
     id_aula: int
     nombre_aula: Optional[str] = None
     grado: Optional[str] = None
-    capacidad: Optional[int] = None
-    ubicacion: Optional[str] = None
+    id_sede: int
+    nombre_sede: Optional[str] = None
+    id_institucion: int
+    nombre_institucion: Optional[str] = None
+    id_programa: Optional[int] = None
+    id_tutor: Optional[int] = None
+
+class AsignarTutorRequest(BaseModel):
+    id_aula: int
     id_sede: int
     id_institucion: int
+    id_tutor: Optional[int] = None
     
 
 # -----------------
@@ -95,25 +103,58 @@ class AsignacionTutorCreate(BaseModel):
     fecha_fin: Optional[str] = None
 
 class EstudianteCreate(BaseModel):
+    id_estudiante: int
+    tipo_documento: Optional[str] = None
+    nombre: str
+    grado: Optional[str] = None
+    score_inicial: Optional[float] = None
+    id_aula: Optional[int] = None
+    id_sede: Optional[int] = None
+    id_institucion: Optional[int] = None
+
+class EstudianteRead(BaseModel):
+    id_estudiante: int
     tipo_documento: Optional[str] = None
     nombre: str
     grado: Optional[str] = None
     score_inicial: Optional[float] = None
     score_final: Optional[float] = None
     id_aula: Optional[int] = None
-
-class EstudianteRead(BaseModel):
+    id_sede: Optional[int] = None
+    id_institucion: Optional[int] = None
+    
+class EstudianteInfoRead(BaseModel):
     id_estudiante: int
-    tipo_documento: Optional[str]
+    tipo_documento: Optional[str] = None
     nombre: str
-    grado: Optional[str]
-    score_inicial: Optional[float]
-    score_final: Optional[float]
-    id_aula: Optional[int]
+    grado: Optional[str] = None
+    score_inicial: Optional[int] = None
+    score_final: Optional[int] = None
+    id_aula: Optional[int] = None
+    nombre_aula: Optional[str] = None
+    id_sede: Optional[int] = None
+    nombre_sede: Optional[str] = None
+    id_institucion: Optional[int] = None
+    nombre_institucion: Optional[str] = None
+
+class CambiarAulaRequest(BaseModel):
+    id_aula: int
+    id_sede: int
+    id_institucion: int
+    
+
+class ActualizarScoreFinalRequest(BaseModel):
+    score_final: float
+    
 
 class TutorListItem(BaseModel):
     id_tutor: int
     id_persona: Optional[int] = None
+    
+class TutorListInfoItem(BaseModel):
+    id_tutor: int
+    id_persona: Optional[int] = None
+    nombre_persona: Optional[str] = None
 
 class TutorAssignRequest(BaseModel):
     id_persona: int
@@ -139,7 +180,29 @@ class HorarioCreate(BaseModel):
     dia: str
     hora_inicio: str
     hora_fin: str
+    duracion_minutos: int = 60
+    id_aula: int
+
+class HorarioRead(BaseModel):
+    id_horario: int
+    dia: str
+    hora_inicio: str
+    hora_fin: str
     id_aula: Optional[int] = None
+    id_sede: Optional[int] = None
+    id_institucion: Optional[int] = None
+    grado: Optional[str] = None
+    nombre_aula: Optional[str] = None
+
+class HorarioUpdate(BaseModel):
+    dia: Optional[str] = None
+    hora_inicio: Optional[str] = None
+    hora_fin: Optional[str] = None
+    duracion_minutos: Optional[int] = 60
+
+class HorarioAsignacionCreate(BaseModel):
+    id_horario: int
+    id_aula: int
 
 class PeriodoCreate(BaseModel):
     fecha_inicio: Optional[str] = None

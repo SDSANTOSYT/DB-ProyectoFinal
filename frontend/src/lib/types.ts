@@ -2,11 +2,21 @@ export type Rol = 'NULL'| 'ADMINISTRADOR' | 'ADMINISTRATIVO' | 'TUTOR';
 
 export type Jornada = 'NULL' | 'UNICA MAÑANA' | 'UNICA TARDE' | 'MIXTA';
 
+export interface AulaInfo{
+  id_aula: number
+  id_sede: number
+  id_institucion: number
+  grado: string
+}
+
 export interface Aula {
   id_aula: number
-  nombre: string,
+  nombre_aula: string
   grado: string
   id_sede: number
+  nombre_sede: string
+  id_institucion: number
+  nombre_institucion: string
   id_programa: number
   id_tutor: number
 }
@@ -22,6 +32,12 @@ export interface User {
 export interface Tutor {
   id_tutor: number;
   id_persona: number,
+}
+
+export interface TutorInfo {
+  id_tutor: number;
+  id_persona: number,
+  nombre_persona: string
 }
 
 export interface Horario {
@@ -46,4 +62,19 @@ export interface Sede {
   nombre_sede: string,
   direccion: string,
   telefono: string
+}
+
+export interface Estudiante {
+  id_estudiante: number,
+  tipo_documento: string,
+  nombre:string,
+  grado: string,
+  score_inicial: number,
+  score_final: number,
+  id_aula: number,
+  nombre_aula: string,
+  id_sede: number,
+  nombre_sede: string,
+  id_institucion: number
+  nombre_institucion: string,
 }

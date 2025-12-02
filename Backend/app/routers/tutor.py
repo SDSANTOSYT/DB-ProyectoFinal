@@ -6,7 +6,7 @@ import logging
 from ..db import get_conn
 from ..schemas import (
     TutorAssignRequest, TutorAssignResponse, TutorCreate, TutorDeleteResponse, TutorIdResponse, AulaSimple, AulasCountResponse,
-    AulaStudentCount, StudentSimple, HorarioSimple, LoginRequest, LoginResponse, TutorListItem, TutorUnlinkResponse
+    AulaStudentCount, StudentSimple, HorarioSimple, LoginRequest, LoginResponse, TutorListInfoItem, TutorListItem, TutorUnlinkResponse
 )
 
 logger = logging.getLogger(__name__)
@@ -191,6 +191,24 @@ def listar_todos_tutores():
     finally:
         cur.close()
         conn.close()
+        
+@router.get("/info", response_model=List[TutorListInfoItem])
+def listar_todos_tutores_info():
+    conn = get_conn()
+    cur = conn.cursor()
+    try:
+        # Selecciona todos los tutores con su id_persona (puede ser NULL)
+        cur.execute("""
+                SELECT ID_TUTOR, persona.ID_PERSONA, nombre 
+                FROM TUTOR LEFT JOIN PERSONA ON tutor.id_persona = persona.id_persona 
+                ORDER BY ID_TUTOR
+                """)
+        rows = cur.fetchall()
+        result = [{"id_tutor": r[0], "id_persona": r[1], "nombre_persona": r[2]} for r in rows]
+        return result
+    finally:
+        cur.close()
+        conn.close()
 
 # 9) asignar / relacionar un tutor con una persona
 @router.put("/{id_tutor}/asignar-persona", response_model=TutorAssignResponse)
@@ -221,7 +239,7 @@ def asignar_persona_a_tutor(id_tutor: int, payload: TutorAssignRequest):
 
 
 # 10) Crear tutor 
-@router.post("/", status_code=201)
+@router.post("/", status_code=201, response_model=TutorListItem)
 def crear_tutor(payload: TutorCreate):
     conn = get_conn(); cur = conn.cursor()
     try:

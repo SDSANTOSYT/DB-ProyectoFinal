@@ -73,51 +73,65 @@ export default function TutorDashboard() {
   }, 0);*/
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl mb-2">¡Hola, {user?.nombre}!</h1>
-        <p className="text-muted-foreground">
+    <div className="space-y-8">
+      {/* Breadcrumb */}
+      <div className="flex items-center text-sm text-muted-foreground">
+        <span>Inicio</span>
+        <span className="mx-2 text-primary">/</span>
+        <span className="text-foreground font-medium">Mi Panel</span>
+      </div>
+
+      {/* Page Header */}
+      <div className="border-b border-gray-200 pb-4">
+        <h1 className="text-4xl font-semibold mb-2 text-foreground">¡Hola, {user?.nombre}!</h1>
+        <p className="text-muted-foreground text-lg">
           Aquí está tu resumen del día
         </p>
       </div>
 
       {/* Stats */}
       <div className="grid gap-6 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm">Mis Aulas</CardTitle>
-            <School className="w-5 h-5 text-blue-600" />
+        <Card className="border-gray-200 hover:shadow-lg hover:border-primary/50 transition-all">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardTitle className="text-sm font-semibold text-gray-600">Mis Aulas</CardTitle>
+            <div className="bg-red-50 p-2.5 rounded-lg">
+              <School className="w-6 h-6 text-primary" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl mb-2">{tutorAulas.length}</div>
+            <div className="text-4xl font-bold mb-2 text-foreground">{tutorAulas.length}</div>
             <Link to="/tutor/mis-aulas">
-              <Button variant="link" size="sm" className="p-0 h-auto">
+              <Button variant="link" size="sm" className="p-0 h-auto text-primary hover:text-primary-hover font-medium">
                 Ver todas →
               </Button>
             </Link>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm">Estudiantes</CardTitle>
-            <ClipboardCheck className="w-5 h-5 text-green-600" />
+        <Card className="border-gray-200 hover:shadow-lg hover:border-primary/50 transition-all">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardTitle className="text-sm font-semibold text-gray-600">Estudiantes</CardTitle>
+            <div className="bg-green-50 p-2.5 rounded-lg">
+              <ClipboardCheck className="w-6 h-6 text-success" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl mb-2">{totalStudents}</div>
-            <p className="text-xs text-muted-foreground">Total en todas tus aulas</p>
+            <div className="text-4xl font-bold mb-2 text-foreground">{totalStudents}</div>
+            <p className="text-sm text-muted-foreground">Total en todas tus aulas</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm">Clases Hoy</CardTitle>
-            <Clock className="w-5 h-5 text-purple-600" />
+        <Card className="border-gray-200 hover:shadow-lg hover:border-primary/50 transition-all">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardTitle className="text-sm font-semibold text-gray-600">Clases Hoy</CardTitle>
+            <div className="bg-red-50 p-2.5 rounded-lg">
+              <Clock className="w-6 h-6 text-primary" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl mb-2">{todayClasses.length}</div>
+            <div className="text-4xl font-bold mb-2 text-foreground">{todayClasses.length}</div>
             <Link to="/tutor/horario">
-              <Button variant="link" size="sm" className="p-0 h-auto">
+              <Button variant="link" size="sm" className="p-0 h-auto text-primary hover:text-primary-hover font-medium">
                 Ver horario →
               </Button>
             </Link>
@@ -127,9 +141,9 @@ export default function TutorDashboard() {
 
       {/* Today's Classes */}
       {todayClasses > 0 && (
-        <Card>
+        <Card className="border-gray-200">
           <CardHeader>
-            <CardTitle>Clases de Hoy - {todayCapitalized}</CardTitle>
+            <CardTitle className="text-xl font-semibold">Clases de Hoy - {todayCapitalized}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {todayClasses.map((aula) => {
@@ -143,17 +157,14 @@ export default function TutorDashboard() {
               return (
                 <div
                   key={aula.id}
-                  className="flex items-center justify-between p-4 border rounded-lg bg-gradient-to-r from-blue-50 to-purple-50"
+                  className="flex items-center justify-between p-5 border border-gray-200 rounded-xl bg-gradient-to-r from-white to-red-50 hover:shadow-md transition-all"
                 >
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p>{aula.nombre}</p>
+                    <div className="flex items-center gap-2 mb-2">
+                      <p className="font-semibold text-foreground">{aula.nombre}</p>
                       <Badge
-                        variant={
-                          aula.programa === 'INSIDECLASSROOM'
-                            ? 'default'
-                            : 'secondary'
-                        }
+                        variant="default"
+                        className="bg-primary"
                       >
                         Grado {aula.grado}°
                       </Badge>
@@ -165,14 +176,14 @@ export default function TutorDashboard() {
                       {estudiantesCount} estudiantes
                     </p>
                     {todaySchedules.map((schedule) => (
-                      <p key={schedule.id} className="text-sm mt-1">
-                        <Clock className="w-3 h-3 inline mr-1" />
+                      <p key={schedule.id} className="text-sm mt-1 font-medium text-primary">
+                        <Clock className="w-4 h-4 inline mr-1" />
                         {schedule.horaInicio} - {schedule.horaFin}
                       </p>
                     ))}
                   </div>
                   <Link to="/tutor/asistencia">
-                    <Button>Tomar Asistencia</Button>
+                    <Button className="shadow-md">Tomar Asistencia</Button>
                   </Link>
                 </div>
               );
@@ -182,19 +193,19 @@ export default function TutorDashboard() {
       )}
 
       {/* Quick Actions */}
-      <Card>
+      <Card className="border-gray-200">
         <CardHeader>
-          <CardTitle>Acciones Rápidas</CardTitle>
+          <CardTitle className="text-xl font-semibold">Acciones Rápidas</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2">
             <Link to="/tutor/asistencia">
-              <Button variant="outline" className="w-full h-auto py-4 justify-start">
-                <div className="flex items-start gap-3">
-                  <ClipboardCheck className="w-5 h-5 mt-0.5" />
+              <Button variant="outline" className="w-full h-auto py-5 justify-start hover:bg-accent hover:text-primary hover:border-primary transition-all">
+                <div className="flex items-start gap-4">
+                  <ClipboardCheck className="w-6 h-6 mt-0.5" />
                   <div className="text-left">
-                    <p>Tomar Asistencia</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="font-semibold">Tomar Asistencia</p>
+                    <p className="text-xs text-muted-foreground mt-1">
                       Registrar asistencia de estudiantes
                     </p>
                   </div>
@@ -203,12 +214,12 @@ export default function TutorDashboard() {
             </Link>
 
             <Link to="/tutor/notas">
-              <Button variant="outline" className="w-full h-auto py-4 justify-start">
-                <div className="flex items-start gap-3">
-                  <FileText className="w-5 h-5 mt-0.5" />
+              <Button variant="outline" className="w-full h-auto py-5 justify-start hover:bg-accent hover:text-primary hover:border-primary transition-all">
+                <div className="flex items-start gap-4">
+                  <FileText className="w-6 h-6 mt-0.5" />
                   <div className="text-left">
-                    <p>Ingresar Notas</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="font-semibold">Ingresar Notas</p>
+                    <p className="text-xs text-muted-foreground mt-1">
                       Calificar estudiantes por periodo
                     </p>
                   </div>
@@ -217,12 +228,12 @@ export default function TutorDashboard() {
             </Link>
 
             <Link to="/tutor/horario">
-              <Button variant="outline" className="w-full h-auto py-4 justify-start">
-                <div className="flex items-start gap-3">
-                  <Calendar className="w-5 h-5 mt-0.5" />
+              <Button variant="outline" className="w-full h-auto py-5 justify-start hover:bg-accent hover:text-primary hover:border-primary transition-all">
+                <div className="flex items-start gap-4">
+                  <Calendar className="w-6 h-6 mt-0.5" />
                   <div className="text-left">
-                    <p>Mi Horario</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="font-semibold">Mi Horario</p>
+                    <p className="text-xs text-muted-foreground mt-1">
                       Ver calendario semanal de clases
                     </p>
                   </div>
@@ -231,12 +242,12 @@ export default function TutorDashboard() {
             </Link>
 
             <Link to="/tutor/reportes">
-              <Button variant="outline" className="w-full h-auto py-4 justify-start">
-                <div className="flex items-start gap-3">
-                  <FileText className="w-5 h-5 mt-0.5" />
+              <Button variant="outline" className="w-full h-auto py-5 justify-start hover:bg-accent hover:text-primary hover:border-primary transition-all">
+                <div className="flex items-start gap-4">
+                  <FileText className="w-6 h-6 mt-0.5" />
                   <div className="text-left">
-                    <p>Mis Reportes</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="font-semibold">Mis Reportes</p>
+                    <p className="text-xs text-muted-foreground mt-1">
                       Ver progreso y estadísticas
                     </p>
                   </div>

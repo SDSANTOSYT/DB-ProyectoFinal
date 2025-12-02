@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException
 import oracledb
 import logging
 from app.db import get_conn
-from app.schemas import AulaCreate, AulaResponse, AulaUpdate
+from app.schemas import AsignarTutorRequest, AulaCreate, AulaResponse, AulaUpdate
 from typing import List, Optional
 
 logger = logging.getLogger(__name__)
@@ -26,19 +26,30 @@ def listar_aulas(limit: int = 500):
         logger.info("Listando todas las aulas")
 
         cur.execute("""
-            SELECT ID_AULA, CODIGO_AULA, GRADO, CAPACIDAD, UBICACION, ID_SEDE, ID_INSTITUCION
-            FROM AULA 
+            SELECT ID_AULA, NOMBRE_AULA, GRADO, s.ID_SEDE, s.NOMBRE_SEDE, i.ID_INSTITUCION, i.NOMBRE, ID_PROGRAMA, ID_TUTOR
+            FROM AULA a
+            JOIN sede s ON a.id_sede = s.id_sede
+            JOIN institucion i ON i.id_institucion = a.id_institucion
             WHERE ROWNUM <= :1
             ORDER BY ID_AULA
         """, (limit,))
 
         rows = cur.fetchall()
-        cols = [col[0].lower() for col in cur.description]
-        res = [dict(zip(cols, row)) for row in rows]
-
-        # Normalizar nombres a los esperados por Pydantic (minusculas/underscore)
-        # ya vienen id_aula, codigo_aula, grado, capacidad, ubicacion, id_sede, id_institucion
-        return res
+        
+        return [
+            {
+                "id_aula": r[0],
+                "nombre_aula": r[1],
+                "grado": r[2],
+                "id_sede": r[3],
+                "nombre_sede": r[4],
+                "id_institucion": r[5],
+                "nombre_institucion": r[6],
+                "id_programa": r[7],
+                "id_tutor": r[8],
+            } 
+            for r in rows
+        ]
 
     except oracledb.DatabaseError as e:
         logger.error(f"Error de base de datos al listar aulas: {str(e)}")
@@ -74,24 +85,16 @@ def crear_aula(aula: AulaCreate):
         conn = get_conn()
         cur = conn.cursor()
 
-        logger.info(f"Creando aula: {aula.codigo_aula}")
+        logger.info(f"Creando aula: {aula.nombre_aula}")
 
         # preparar variable para RETURNING
         new_id_var = cur.var(int)
 
         cur.execute("""
-            INSERT INTO AULA (CODIGO_AULA, GRADO, CAPACIDAD, UBICACION, ID_SEDE, ID_INSTITUCION)
+            INSERT INTO AULA (NOMBRE_AULA, GRADO, ID_SEDE, ID_INSTITUCION, ID_TUTOR, ID_PROGRAMA)
             VALUES (:1, :2, :3, :4, :5, :6)
-            RETURNING ID_AULA INTO :id_out
-        """, {
-            "1": aula.codigo_aula,
-            "2": aula.grado,
-            "3": aula.capacidad,
-            "4": aula.ubicacion,
-            "5": aula.id_sede,
-            "6": aula.id_institucion,
-            "id_out": new_id_var
-        })
+            RETURNING ID_AULA INTO :7
+        """, (aula.nombre_aula, aula.grado, aula.id_sede, aula.id_institucion, aula.id_tutor, aula.id_programa, new_id_var))
 
         # obtener nuevo id
         new_id = None
@@ -107,15 +110,34 @@ def crear_aula(aula: AulaCreate):
         conn.commit()
 
         logger.info(f"Aula {new_id} creada exitosamente")
+        
+        cur2 = conn.cursor()
+        cur2.execute("""
+                    SELECT ID_AULA, NOMBRE_AULA, GRADO, s.ID_SEDE, s.NOMBRE_SEDE, i.ID_INSTITUCION, i.NOMBRE, ID_PROGRAMA, ID_TUTOR
+                    FROM AULA a
+                    JOIN sede s ON a.id_sede = s.id_sede
+                    JOIN institucion i ON i.id_institucion = a.id_institucion
+                    WHERE a.ID_AULA = :1 AND s.ID_SEDE = :2 AND i.ID_INSTITUCION = :3
+                     """, (new_id, aula.id_sede, aula.id_institucion))
+        r = cur2.fetchone()
+        
+        if not r:
+            logger.error(f"No se pudo recuperar el aula recién creada")
+            raise HTTPException(
+                status_code=500, 
+                detail="Error al recuperar el estudiante creado"
+            )
 
-        return {
-            "id_aula": int(new_id) if new_id is not None else None,
-            "codigo_aula": aula.codigo_aula,
-            "grado": aula.grado,
-            "capacidad": aula.capacidad,
-            "ubicacion": aula.ubicacion,
-            "id_sede": aula.id_sede,
-            "id_institucion": aula.id_institucion
+        return { 
+            "id_aula": r[0],
+            "nombre_aula": r[1] ,
+            "grado": r[2],
+            "id_sede": r[3],
+            "nombre_sede": r[4],
+            "id_institucion": r[5],
+            "nombre_institucion": r[6],
+            "id_programa": r[7],
+            "id_tutor": r[8]
         }
 
     except oracledb.IntegrityError as e:
@@ -322,6 +344,146 @@ def borrar_aula(id_aula: int):
         if conn:
             conn.rollback()
         logger.error(f"Error inesperado al eliminar aula: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Error interno del servidor"
+        )
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+@router.put("/asignar-tutor", response_model=AulaResponse)
+def asignar_tutor_a_aula(payload: AsignarTutorRequest):
+    """
+    Asigna o desasigna un tutor a un aula.
+    Requiere la clave compuesta completa del aula (id_aula, id_sede, id_institucion).
+    - Si id_tutor tiene un valor: asigna ese tutor al aula
+    - Si id_tutor es null: desasigna cualquier tutor del aula
+    """
+    conn = None
+    cur = None
+
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+
+        logger.info(f"Procesando asignación de tutor para aula {payload.id_aula}")
+
+        # Verificar que el aula existe con la clave compuesta completa
+        cur.execute("""
+            SELECT ID_AULA, ID_SEDE, ID_INSTITUCION 
+            FROM AULA 
+            WHERE ID_AULA = :1 
+            AND ID_SEDE = :2 
+            AND ID_INSTITUCION = :3
+        """, (payload.id_aula, payload.id_sede, payload.id_institucion))
+        
+        aula = cur.fetchone()
+        if not aula:
+            logger.warning(f"Aula {payload.id_aula} en sede {payload.id_sede} e institución {payload.id_institucion} no encontrada")
+            raise HTTPException(
+                status_code=404, 
+                detail="Aula no encontrada con la combinación de id_aula, id_sede e id_institucion proporcionada"
+            )
+
+        # Si se proporciona un id_tutor, verificar que existe
+        if payload.id_tutor is not None:
+            logger.info(f"Asignando tutor {payload.id_tutor} al aula {payload.id_aula}")
+            
+            cur.execute("""
+                SELECT ID_TUTOR 
+                FROM TUTOR 
+                WHERE ID_TUTOR = :1
+            """, (payload.id_tutor,))
+            
+            if not cur.fetchone():
+                logger.warning(f"Tutor {payload.id_tutor} no encontrado")
+                raise HTTPException(status_code=404, detail="Tutor no encontrado")
+        else:
+            logger.info(f"Desasignando tutor del aula {payload.id_aula}")
+
+        # Actualizar el aula usando la clave compuesta
+        cur.execute("""
+            UPDATE AULA 
+            SET ID_TUTOR = :1 
+            WHERE ID_AULA = :2 
+            AND ID_SEDE = :3 
+            AND ID_INSTITUCION = :4
+        """, (payload.id_tutor, payload.id_aula, payload.id_sede, payload.id_institucion))
+
+        if cur.rowcount == 0:
+            raise HTTPException(
+                status_code=500,
+                detail="No se pudo actualizar el aula"
+            )
+
+        conn.commit()
+
+        mensaje = f"Tutor asignado exitosamente" if payload.id_tutor else "Tutor desasignado exitosamente"
+        logger.info(mensaje)
+
+        # Devolver el aula actualizada
+        cur.execute("""
+            SELECT ID_AULA, NOMBRE_AULA, GRADO, s.ID_SEDE, s.NOMBRE_SEDE, 
+                   i.ID_INSTITUCION, i.NOMBRE, ID_PROGRAMA, ID_TUTOR
+            FROM AULA a
+            JOIN SEDE s ON a.id_sede = s.id_sede AND a.id_institucion = s.id_institucion
+            JOIN INSTITUCION i ON i.id_institucion = a.id_institucion
+            WHERE a.ID_AULA = :1 
+            AND a.ID_SEDE = :2 
+            AND a.ID_INSTITUCION = :3
+        """, (payload.id_aula, payload.id_sede, payload.id_institucion))
+        
+        r = cur.fetchone()
+        
+        if not r:
+            raise HTTPException(
+                status_code=500,
+                detail="Error al recuperar el aula actualizada"
+            )
+        
+        return {
+            "id_aula": r[0],
+            "nombre_aula": r[1],
+            "grado": r[2],
+            "id_sede": r[3],
+            "nombre_sede": r[4],
+            "id_institucion": r[5],
+            "nombre_institucion": r[6],
+            "id_programa": r[7],
+            "id_tutor": r[8]
+        }
+
+    except HTTPException:
+        if conn:
+            conn.rollback()
+        raise
+
+    except oracledb.IntegrityError as e:
+        if conn:
+            conn.rollback()
+        logger.error(f"Error de integridad al asignar/desasignar tutor: {str(e)}")
+        raise HTTPException(
+            status_code=400,
+            detail="Error de integridad de datos. Verifique que la combinación de aula, sede e institución existe."
+        )
+
+    except oracledb.DatabaseError as e:
+        if conn:
+            conn.rollback()
+        logger.error(f"Error de base de datos: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Error en la base de datos"
+        )
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        logger.error(f"Error inesperado: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail="Error interno del servidor"
