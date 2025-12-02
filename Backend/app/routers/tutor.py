@@ -332,7 +332,7 @@ def asignar_tutor_a_aula(payload: TutorAulaAssignRequest):
         # 4) Recuperar la info actualizada del aula
         cur2 = conn.cursor()
         cur2.execute("""
-            SELECT ID_AULA, CODIGO_AULA, GRADO, CAPACIDAD, UBICACION, ID_SEDE, ID_INSTITUCION, ID_TUTOR
+            SELECT NOMBRE_AULA, GRADO, ID_SEDE, ID_INSTITUCION, ID_TUTOR, ID_PROGRAMA
             FROM AULA
             WHERE ID_AULA = :1 AND ID_SEDE = :2 AND ID_INSTITUCION = :3
         """, (payload.id_aula, payload.id_sede, payload.id_institucion))
@@ -351,13 +351,12 @@ def asignar_tutor_a_aula(payload: TutorAulaAssignRequest):
             "tutor": tutor_data,
             "aula": {
                 "id_aula": aula_data.get("id_aula"),
-                "codigo_aula": aula_data.get("codigo_aula"),
+                "nombre_aula": aula_data.get("nombre_aula"),
                 "grado": aula_data.get("grado"),
-                "capacidad": aula_data.get("capacidad"),
-                "ubicacion": aula_data.get("ubicacion"),
                 "id_sede": aula_data.get("id_sede"),
                 "id_institucion": aula_data.get("id_institucion"),
-                "id_tutor": aula_data.get("id_tutor")
+                "id_tutor": aula_data.get("id_tutor"),
+                "id_programa": aula_data.get("id_programa")                
             },
             "mensaje": f"Tutor {payload.id_tutor} asignado a aula {payload.id_aula}"
         }
