@@ -49,12 +49,13 @@ export default function TomarAsistencia() {
     new Date()
   );
   const [selectedTimes, setSelectedTimes] = useState<string[]>([]);
-  const [timeOptions, setTimeOptions] = useState<string[]>([]); // opciones visibles en el select de hora
+  const [timeOptions, setTimeOptions] = useState<string[]>([]);
   const [attendance, setAttendance] = useState<Record<string, boolean>>({});
   const [classHeld, setClassHeld] = useState(true);
   const [motivo, setMotivo] = useState('');
   const [isReposition, setIsReposition] = useState(false);
-  const [horarios, setHorarios] = useState<HorarioSimple[]>([]); // horarios del tutor (o del tutor seleccionado)
+  const [horarios, setHorarios] = useState<HorarioSimple[]>([]);
+  const [currentTutorId, setCurrentTutorId] = useState<number | null>(null); // <-- id_tutor real
 
   const esTutor = user?.rol === 'TUTOR';
   const esAdmin =
@@ -128,6 +129,7 @@ export default function TomarAsistencia() {
           console.error('Error al obtener tutor por persona', resId.statusText);
           setMisAulas([]);
           setHorarios([]);
+          setCurrentTutorId(null);
           return;
         }
 
@@ -135,10 +137,12 @@ export default function TomarAsistencia() {
         if (!data.id_tutor) {
           setMisAulas([]);
           setHorarios([]);
+          setCurrentTutorId(null);
           return;
         }
 
-        const idTutor = data.id_tutor as number;
+        const idTutor = Number(data.id_tutor);
+        setCurrentTutorId(idTutor);
 
         const aulas = await aulasPorTutorId(idTutor);
         setMisAulas(aulas);
@@ -149,6 +153,7 @@ export default function TomarAsistencia() {
         console.error('Error al cargar aulas/horarios del tutor', err);
         setMisAulas([]);
         setHorarios([]);
+        setCurrentTutorId(null);
       }
     };
 
@@ -190,11 +195,14 @@ export default function TomarAsistencia() {
       setSelectedAula('');
       setTimeOptions([]);
       setSelectedTimes([]);
+      setCurrentTutorId(null);
       return;
     }
 
     const cargarAulasTutor = async () => {
       const tutorIdNum = Number(selectedTutorId);
+      setCurrentTutorId(tutorIdNum);
+
       const dataAulas = await aulasPorTutorId(tutorIdNum);
       setMisAulas(dataAulas);
       setSelectedAula('');
@@ -220,16 +228,14 @@ export default function TomarAsistencia() {
     const horariosAula = horarios.filter((h) => h.id_aula === aulaId);
 
     if (horariosAula.length > 0) {
-      // Crear rangos "HH:MM - HH:MM" a partir de hora_inicio / hora_fin
       const ranges = horariosAula.map((h) => {
-        const start = (h.hora_inicio || '').slice(0, 5); // "HH:MM"
+        const start = (h.hora_inicio || '').slice(0, 5);
         const end = (h.hora_fin || '').slice(0, 5);
         return `${start} - ${end}`;
       });
       setTimeOptions(ranges);
-      setSelectedTimes(ranges); // por defecto, se seleccionan todos los horarios del aula
+      setSelectedTimes(ranges);
     } else {
-      // Si no hay horarios configurados para esa aula, dejamos el select vacío
       setTimeOptions([]);
       setSelectedTimes([]);
     }
@@ -256,23 +262,144 @@ export default function TomarAsistencia() {
     }));
   };
 
-  const handleSaveAttendance = () => {
-    if (!selectedAula || !selectedDate) {
-      toast.error('Selecciona un aula y una fecha');
+  // Helper para obtener hora_entrada / hora_salida del arreglo de rangos "HH:MM - HH:MM"
+  const getHoraEntradaYSalida = () => {
+    if (selectedTimes.length === 0) {
+      return { horaEntrada: null as string | null, horaSalida: null as string | null };
+    }
+
+    const starts: string[] = [];
+    const ends: string[] = [];
+
+    selectedTimes.forEach((range) => {
+      const [ini, fin] = range.split('-').map((s) => s.trim());
+      if (ini) starts.push(ini);
+      if (fin) ends.push(fin);
+    });
+
+    if (starts.length === 0 || ends.length === 0) {
+      return { horaEntrada: null, horaSalida: null };
+    }
+
+    // Orden lexicográfica funciona para "HH:MM"
+    const horaEntrada = [...starts].sort()[0];
+    const horaSalida = [...ends].sort()[ends.length - 1];
+
+    return { horaEntrada, horaSalida };
+  };
+
+  const handleSaveAttendance = async () => {
+    if (!selectedAula || !selectedDate || selectedTimes.length < 1) {
+      toast.error('Selecciona un aula, una fecha y al menos un horario');
       return;
     }
 
-    if (classHeld || isReposition) {
-      toast.success('Asistencia registrada exitosamente');
-    } else {
-      toast.success('Clase no dictada registrada. Motivo: ' + motivo);
+    if (!selectedAulaData) {
+      toast.error('No se encontró información del aula seleccionada');
+      return;
     }
 
-    // Reset form (lo básico)
-    setAttendance({});
-    setClassHeld(true);
-    setMotivo('');
-    setIsReposition(false);
+    if (!currentTutorId) {
+      toast.error('No se pudo determinar el tutor para esta asistencia');
+      return;
+    }
+
+    if (
+      selectedAulaData.id_sede == null ||
+      selectedAulaData.id_institucion == null
+    ) {
+      toast.error('El aula no tiene sede o institución asociadas');
+      return;
+    }
+
+    const { horaEntrada, horaSalida } = getHoraEntradaYSalida();
+    
+    // Formatear fecha como YYYY-MM-DD para Oracle
+    const year = selectedDate.getFullYear();
+    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const day = String(selectedDate.getDate()).padStart(2, '0');
+    const fechaStr = `${year}-${month}-${day}`;
+
+    // Payload para AsistenciaTutorCreate (según schemas.py)
+    const asistenciaTutorPayload = {
+      id_tutor: currentTutorId,
+      id_aula: Number(selectedAulaData.id_aula),
+      id_sede: Number(selectedAulaData.id_sede),
+      id_institucion: Number(selectedAulaData.id_institucion),
+      fecha: fechaStr,
+      hora_entrada: horaEntrada,
+      hora_salida: horaSalida,
+      id_motivo: null,
+      id_asistencia_reposicion: null,
+    };
+
+    // Payloads de estudiantes (AsistenciaEstudianteCreate)
+    const estudiantesPayloads = (classHeld || isReposition)
+      ? estudiantes.map((est) => ({
+          id_estudiante: Number(est.id),
+          id_aula: Number(selectedAulaData.id_aula),
+          id_sede: Number(selectedAulaData.id_sede),
+          id_institucion: Number(selectedAulaData.id_institucion),
+          fecha: fechaStr,
+          hora_entrada: horaEntrada,
+          hora_salida: horaSalida,
+          presente: attendance[est.id] ? 1 : 0,
+        }))
+      : [];
+
+    try {
+      // 1) Registrar asistencia del tutor
+      const resTutor = await fetch(`${API_URL}/asistencias/tutores`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(asistenciaTutorPayload),
+      });
+
+      if (!resTutor.ok) {
+        const errorData = await resTutor.json().catch(() => null);
+        throw new Error(
+          errorData?.detail || 'Error al registrar asistencia del tutor'
+        );
+      }
+
+      // 2) Registrar asistencias de estudiantes solo si la clase se dictó o es reposición
+      if (classHeld || isReposition) {
+        const requests = estudiantesPayloads.map((p) =>
+          fetch(`${API_URL}/asistencias/estudiantes`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(p),
+          })
+        );
+
+        const responses = await Promise.all(requests);
+
+        for (const r of responses) {
+          if (!r.ok) {
+            const errBody = await r.json().catch(() => null);
+            throw new Error(
+              errBody?.detail || 'Error al registrar asistencia de estudiante'
+            );
+          }
+        }
+
+        toast.success('Asistencia de tutor y estudiantes registrada exitosamente');
+      } else {
+        // Clase NO dictada: por ahora solo registramos al tutor (sin estudiantes)
+        toast.success(
+          'Clase no dictada registrada para el tutor. (Estudiantes no marcados)'
+        );
+      }
+
+      // Reset form (lo básico)
+      setAttendance({});
+      setClassHeld(true);
+      setMotivo('');
+      setIsReposition(false);
+    } catch (err: any) {
+      console.error('Error al guardar asistencia:', err);
+      toast.error(err?.message || 'Error al guardar asistencia');
+    }
   };
 
   const handleMarkAllPresent = () => {
@@ -351,7 +478,6 @@ export default function TomarAsistencia() {
                         key={aula.id_aula}
                         value={String(aula.id_aula)}
                       >
-                        {/* Nombre del aula + contexto */}
                         {aula.nombre_aula} • {aula.nombre_institucion} -{' '}
                         {aula.nombre_sede}
                       </SelectItem>

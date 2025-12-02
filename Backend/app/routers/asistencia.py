@@ -58,14 +58,11 @@ def listar_asistencia_tutor(limit: int = 500):
         if conn:
             conn.close()
 
-
 @router.post("/tutores", response_model=AsistenciaTutorResponse, status_code=201)
 def registrar_asistencia_tutor(a: AsistenciaTutorCreate):
     """
     Registra una nueva asistencia de tutor.
-    id_asistencia se genera automáticamente en la BD y se devuelve.
-    Se espera que la tabla ASISTENCIA_AULA_TUTOR tenga columnas:
-    ID_ASISTENCIA (IDENTITY/PK), ID_TUTOR, ID_AULA, ID_SEDE, ID_INSTITUCION, FECHA, HORA_ENTRADA, HORA_SALIDA, ...
+    La fecha se registra automáticamente con SYSDATE.
     """
     conn = None
     cur = None
@@ -74,33 +71,33 @@ def registrar_asistencia_tutor(a: AsistenciaTutorCreate):
         conn = get_conn()
         cur = conn.cursor()
 
-        logger.info(f"Registrando asistencia de tutor {a.id_tutor} en aula {a.id_aula} (sede {a.id_sede}, inst {a.id_institucion})")
+        logger.info(f"Registrando asistencia de tutor {a.id_tutor} en aula {a.id_aula}")
 
         id_var = cur.var(int)
 
+        # Sin fecha explícita, Oracle usará SYSDATE por defecto o NULL
         cur.execute("""
             INSERT INTO ASISTENCIA_AULA_TUTOR
               (ID_TUTOR, ID_AULA, ID_SEDE, ID_INSTITUCION, FECHA, HORA_ENTRADA, HORA_SALIDA, SE_DIO, ID_MOTIVO, ID_ASISTENCIA_REPOSICION)
             VALUES
-              (:id_tutor, :id_aula, :id_sede, :id_institucion, :fecha, :hora_entrada, :hora_salida, :se_dio, :id_motivo, :id_asistencia_reposicion)
+              (:id_tutor, :id_aula, :id_sede, :id_institucion, 
+               SYSDATE, :hora_entrada, :hora_salida, 
+               :se_dio, :id_motivo, :id_asistencia_reposicion)
             RETURNING ID_ASISTENCIA INTO :id_out
         """, {
             "id_tutor": a.id_tutor,
             "id_aula": a.id_aula,
             "id_sede": a.id_sede,
             "id_institucion": a.id_institucion,
-            "fecha": a.fecha,
             "hora_entrada": a.hora_entrada,
             "hora_salida": a.hora_salida,
-            "se_dio": None,
+            "se_dio": 1,
             "id_motivo": a.id_motivo,
             "id_asistencia_reposicion": a.id_asistencia_reposicion,
             "id_out": id_var
         })
 
-        # obtener el id generado
         new_id = id_var.getvalue()
-        # id_var.getvalue() puede devolver lista/tupla dependiendo de driver
         if isinstance(new_id, (list, tuple)):
             new_id = new_id[0]
 
@@ -114,10 +111,10 @@ def registrar_asistencia_tutor(a: AsistenciaTutorCreate):
             "id_aula": a.id_aula,
             "id_sede": a.id_sede,
             "id_institucion": a.id_institucion,
-            "fecha": a.fecha,
+            "fecha": None,
             "hora_entrada": a.hora_entrada,
             "hora_salida": a.hora_salida,
-            "se_dio": None
+            "se_dio": 1
         }
 
     except oracledb.IntegrityError as e:
@@ -130,7 +127,7 @@ def registrar_asistencia_tutor(a: AsistenciaTutorCreate):
         if conn:
             conn.rollback()
         logger.error(f"Error de base de datos al registrar asistencia de tutor: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error en la base de datos")
+        raise HTTPException(status_code=500, detail=f"Error en la base de datos: {str(e)}")
 
     except Exception as e:
         if conn:
@@ -194,7 +191,7 @@ def listar_asistencia_estudiante(limit: int = 500):
 def registrar_asistencia_estudiante(a: AsistenciaEstudianteCreate):
     """
     Registra una nueva asistencia de estudiante.
-    id_asistencia se genera automáticamente en la BD y se devuelve.
+    La fecha se registra automáticamente con SYSDATE.
     """
     conn = None
     cur = None
@@ -203,22 +200,23 @@ def registrar_asistencia_estudiante(a: AsistenciaEstudianteCreate):
         conn = get_conn()
         cur = conn.cursor()
 
-        logger.info(f"Registrando asistencia de estudiante {a.id_estudiante} en aula {a.id_aula} (sede {a.id_sede}, inst {a.id_institucion})")
+        logger.info(f"Registrando asistencia de estudiante {a.id_estudiante}")
 
         id_var = cur.var(int)
 
+        # Sin fecha explícita, Oracle usará SYSDATE
         cur.execute("""
             INSERT INTO ASISTENCIA_AULA_ESTUDIANTE
               (ID_ESTUDIANTE, ID_AULA, ID_SEDE, ID_INSTITUCION, FECHA, HORA_ENTRADA, HORA_SALIDA, PRESENTE)
             VALUES
-              (:id_estudiante, :id_aula, :id_sede, :id_institucion, :fecha, :hora_entrada, :hora_salida, :presente)
+              (:id_estudiante, :id_aula, :id_sede, :id_institucion, 
+               SYSDATE, :hora_entrada, :hora_salida, :presente)
             RETURNING ID_ASISTENCIA INTO :id_out
         """, {
             "id_estudiante": a.id_estudiante,
             "id_aula": a.id_aula,
             "id_sede": a.id_sede,
             "id_institucion": a.id_institucion,
-            "fecha": a.fecha,
             "hora_entrada": a.hora_entrada,
             "hora_salida": a.hora_salida,
             "presente": a.presente,
@@ -239,7 +237,7 @@ def registrar_asistencia_estudiante(a: AsistenciaEstudianteCreate):
             "id_aula": a.id_aula,
             "id_sede": a.id_sede,
             "id_institucion": a.id_institucion,
-            "fecha": a.fecha,
+            "fecha": None,
             "hora_entrada": a.hora_entrada,
             "hora_salida": a.hora_salida,
             "presente": a.presente
@@ -255,7 +253,7 @@ def registrar_asistencia_estudiante(a: AsistenciaEstudianteCreate):
         if conn:
             conn.rollback()
         logger.error(f"Error de base de datos al registrar asistencia de estudiante: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error en la base de datos")
+        raise HTTPException(status_code=500, detail=f"Error en la base de datos: {str(e)}")
 
     except Exception as e:
         if conn:
