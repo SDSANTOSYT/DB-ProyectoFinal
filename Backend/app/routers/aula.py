@@ -354,3 +354,127 @@ def borrar_aula(id_aula: int):
             cur.close()
         if conn:
             conn.close()
+
+@router.put("/{id_aula}/asignar-tutor")
+def asignar_tutor_a_aula(id_aula: int, id_tutor: Optional[int] = None):
+    """
+    Asigna o desasigna un tutor a un aula.
+    - Si id_tutor tiene un valor: asigna ese tutor al aula
+    - Si id_tutor es null: desasigna cualquier tutor del aula
+    pipipipi
+    """
+    conn = None
+    cur = None
+
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+
+        # Verificar que el aula existe
+        cur.execute("""
+            SELECT ID_AULA, ID_SEDE, ID_INSTITUCION 
+            FROM AULA 
+            WHERE ID_AULA = :1
+        """, (id_aula,))
+        
+        aula = cur.fetchone()
+        if not aula:
+            logger.warning(f"Aula {id_aula} no encontrada")
+            raise HTTPException(status_code=404, detail="Aula no encontrada")
+
+        # Si se proporciona un id_tutor, verificar que existe
+        if id_tutor is not None:
+            logger.info(f"Asignando tutor {id_tutor} al aula {id_aula}")
+            
+            cur.execute("""
+                SELECT ID_TUTOR 
+                FROM TUTOR 
+                WHERE ID_TUTOR = :1
+            """, (id_tutor,))
+            
+            if not cur.fetchone():
+                logger.warning(f"Tutor {id_tutor} no encontrado")
+                raise HTTPException(status_code=404, detail="Tutor no encontrado")
+        else:
+            logger.info(f"Desasignando tutor del aula {id_aula}")
+
+        # Actualizar el aula (asignar o desasignar según el caso)
+        cur.execute("""
+            UPDATE AULA 
+            SET ID_TUTOR = :1 
+            WHERE ID_AULA = :2
+        """, (id_tutor, id_aula))
+
+        if cur.rowcount == 0:
+            raise HTTPException(
+                status_code=500,
+                detail="No se pudo actualizar el aula"
+            )
+
+        conn.commit()
+
+        mensaje = f"Tutor asignado exitosamente" if id_tutor else "Tutor desasignado exitosamente"
+        logger.info(mensaje)
+
+        # Devolver el aula actualizada
+        cur.execute("""
+            SELECT ID_AULA, NOMBRE_AULA, GRADO, s.ID_SEDE, s.NOMBRE_SEDE, 
+                   i.ID_INSTITUCION, i.NOMBRE, ID_PROGRAMA, ID_TUTOR
+            FROM AULA a
+            JOIN sede s ON a.id_sede = s.id_sede
+            JOIN institucion i ON i.id_institucion = a.id_institucion
+            WHERE a.ID_AULA = :1
+        """, (id_aula,))
+        
+        r = cur.fetchone()
+        
+        return {
+            "id_aula": r[0],
+            "nombre_aula": r[1],
+            "grado": r[2],
+            "id_sede": r[3],
+            "nombre_sede": r[4],
+            "id_institucion": r[5],
+            "nombre_institucion": r[6],
+            "id_programa": r[7],
+            "id_tutor": r[8],
+            "mensaje": mensaje
+        }
+
+    except HTTPException:
+        if conn:
+            conn.rollback()
+        raise
+
+    except oracledb.IntegrityError as e:
+        if conn:
+            conn.rollback()
+        logger.error(f"Error de integridad al asignar/desasignar tutor: {str(e)}")
+        raise HTTPException(
+            status_code=400,
+            detail="Error de integridad de datos"
+        )
+
+    except oracledb.DatabaseError as e:
+        if conn:
+            conn.rollback()
+        logger.error(f"Error de base de datos: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Error en la base de datos"
+        )
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        logger.error(f"Error inesperado: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Error interno del servidor"
+        )
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
