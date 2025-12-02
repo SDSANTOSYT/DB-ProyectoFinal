@@ -26,12 +26,15 @@ def listar_aulas(limit: int = 500):
         logger.info("Listando todas las aulas")
 
         cur.execute("""
-            SELECT ID_AULA, NOMBRE_AULA, GRADO, s.ID_SEDE, s.NOMBRE_SEDE, i.ID_INSTITUCION, i.NOMBRE, ID_PROGRAMA, ID_TUTOR
+            SELECT ID_AULA, NOMBRE_AULA, GRADO, s.ID_SEDE, s.NOMBRE_SEDE, i.ID_INSTITUCION, i.NOMBRE , ID_PROGRAMA, ID_TUTOR
             FROM AULA a
-            JOIN sede s ON a.id_sede = s.id_sede
-            JOIN institucion i ON i.id_institucion = a.id_institucion
-            WHERE ROWNUM <= :1
-            ORDER BY ID_AULA
+            JOIN SEDE s 
+                ON a.ID_SEDE = s.ID_SEDE
+                AND a.ID_INSTITUCION = s.ID_INSTITUCION
+            JOIN INSTITUCION i
+                ON i.ID_INSTITUCION = a.ID_INSTITUCION
+            ORDER BY a.ID_AULA
+            FETCH FIRST :1 ROWS ONLY
         """, (limit,))
 
         rows = cur.fetchall()

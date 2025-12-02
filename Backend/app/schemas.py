@@ -71,7 +71,7 @@ class AsignarTutorRequest(BaseModel):
     
 
 # -----------------
-# Persona / Usuario / Tutor / Estudiante
+# Persona / Usuario / Estudiante
 # -----------------
 class PersonaCreate(BaseModel):
     id_persona: int
@@ -87,14 +87,7 @@ class PersonaRead(BaseModel):
 
 class UsuarioCreate(BaseModel):
     contrasena: str
-    id_persona: int
-
-class TutorCreate(BaseModel):
-    id_persona: Optional[int] = None
-
-class TutorRead(BaseModel):
-    id_tutor: int
-    id_persona: int
+    correo: Optional[str] = None
 
 class AsignacionTutorCreate(BaseModel):
     id_tutor: int
@@ -150,7 +143,13 @@ class ActualizarScoreFinalRequest(BaseModel):
 # -----------------
 # Tutor
 # -----------------
-    
+
+class TutorCreate(BaseModel):
+    id_persona: Optional[int] = None
+
+class TutorRead(BaseModel):
+    id_tutor: int
+    id_persona: int
 
 class TutorListItem(BaseModel):
     id_tutor: int
@@ -259,30 +258,33 @@ class NotaResponse(BaseModel):
 # Asistencia / Motivo / Festivo / Registro de cambio
 # -----------------
 class AsistenciaTutorCreate(BaseModel):
-    fecha: Optional[str] = None
-    se_dio: Optional[int] = 1
     id_tutor: int
-    id_horario: Optional[int] = None
-    id_motivo: Optional[int] = None
-    id_asistencia_reposicion: Optional[int] = None
-    # alternativas que usan otros routers
-    id_aula: Optional[int] = None
+    id_aula: int
+    id_sede: int
+    id_institucion: int
+    fecha: Optional[str] = None
     hora_entrada: Optional[str] = None
     hora_salida: Optional[str] = None
+    id_motivo: Optional[int] = None
+    id_asistencia_reposicion: Optional[int] = None
 
 class AsistenciaTutorResponse(BaseModel):
     id_asistencia: int
     id_tutor: Optional[int] = None
     id_aula: Optional[int] = None
+    id_sede: Optional[int] = None
+    id_institucion: Optional[int] = None
     fecha: Optional[str] = None
     hora_entrada: Optional[str] = None
     hora_salida: Optional[str] = None
     se_dio: Optional[int] = None
 
 class AsistenciaEstudianteCreate(BaseModel):
-    fecha: Optional[str] = None
     id_estudiante: int
-    id_aula: Optional[int] = None
+    id_aula: int
+    id_sede: int
+    id_institucion: int
+    fecha: Optional[str] = None
     hora_entrada: Optional[str] = None
     hora_salida: Optional[str] = None
     presente: Optional[int] = None
@@ -291,6 +293,8 @@ class AsistenciaEstudianteResponse(BaseModel):
     id_asistencia: int
     id_estudiante: Optional[int] = None
     id_aula: Optional[int] = None
+    id_sede: Optional[int] = None
+    id_institucion: Optional[int] = None
     fecha: Optional[str] = None
     hora_entrada: Optional[str] = None
     hora_salida: Optional[str] = None

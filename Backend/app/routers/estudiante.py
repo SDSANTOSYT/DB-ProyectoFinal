@@ -195,10 +195,17 @@ def list_estudiantes(limit: int = 100):
             SELECT id_estudiante, tipo_documento, e.nombre, e.grado, e.score_inicial, 
                 e.score_final, a.id_aula, a.nombre_aula, s.id_sede, s.nombre_sede, 
                 i.id_institucion, i.nombre
-            FROM estudiante e 
-            LEFT JOIN institucion i ON e.id_institucion = i.id_institucion 
-            LEFT JOIN sede s ON e.id_sede = s.id_sede
-            LEFT JOIN aula a ON a.id_aula = e.id_aula
+            FROM estudiante e
+            LEFT JOIN institucion i
+              ON e.id_institucion = i.id_institucion
+            LEFT JOIN sede s
+              ON e.id_sede = s.id_sede
+             AND e.id_institucion = s.id_institucion
+            LEFT JOIN aula a
+              ON a.id_aula = e.id_aula
+             AND a.id_sede = e.id_sede   -- <-- si tu columna en AULA se llama ID_SEDE usa ID_SEDE (ajusta si no)
+             AND a.id_institucion = e.id_institucion
+            ORDER BY e.id_estudiante
             FETCH FIRST :1 ROWS ONLY
         """, (limit,))
         
