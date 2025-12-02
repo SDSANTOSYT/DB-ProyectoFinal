@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Badge } from '../ui/badge';
-import { Button } from '../ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Clock, Plus, X } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
 import { useCalendarApp, ScheduleXCalendar } from '@schedule-x/react';
-import { createViewWeek } from '@schedule-x/calendar';
+import { createViewWeek, createViewMonthGrid } from '@schedule-x/calendar';
 import '@schedule-x/theme-default/dist/index.css';
-import 'temporal-polyfill';
 
 // API URL - ajusta según tu configuración
 const API_URL = 'http://localhost:8000';
@@ -50,8 +48,47 @@ interface HorarioFormData {
   duracion_minutos: number;
 }
 
+// Función para generar eventos recurrentes
+const generarEventosRecurrentes = (horarios: Horario[], numSemanas: number = 52) => {
+  const eventos = [];
+  const diasSemana = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
+  // Fecha base: primera semana completa del año 2024
+  const fechaBase = new Date('2024-01-01');
+
+  for (const horario of horarios) {
+    const diaIndex = diasSemana.indexOf(horario.dia);
+    if (diaIndex === -1) continue;
+
+    // Generar eventos para cada semana
+    for (let semana = 0; semana < numSemanas; semana++) {
+      // Calcular la fecha para esta semana
+      const fecha = new Date(fechaBase);
+      fecha.setDate(fechaBase.getDate() + (semana * 7) + diaIndex);
+
+      // Formatear fecha como YYYY-MM-DD
+      const año = fecha.getFullYear();
+      const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+      const dia = String(fecha.getDate()).padStart(2, '0');
+      const fechaStr = `${año}-${mes}-${dia}`;
+
+      eventos.push({
+        id: `${horario.id_horario}-semana${semana}`,
+        title: `${horario.nombre_aula || 'Aula'} - ${horario.grado}°\n${horario.nombre_tutor || 'Sin tutor'}`,
+        start: `${fechaStr}T${horario.hora_inicio}`,
+        end: `${fechaStr}T${horario.hora_fin}`,
+        // Datos adicionales para referencia
+        _horarioId: horario.id_horario,
+        _aulaId: horario.id_aula
+      });
+    }
+  }
+
+  return eventos;
+};
+
 export default function MiHorario() {
-  const { user } = useAuth();
+  const user = { id_persona: 1, rol: 'ADMINISTRATIVO' }; // Mock user
   const [misAulas, setMisAulas] = useState<Aula[]>([]);
   const [horarios, setHorarios] = useState<Horario[]>([]);
   const [tutores, setTutores] = useState<Map<number, Tutor>>(new Map());
@@ -67,13 +104,11 @@ export default function MiHorario() {
   });
   const [error, setError] = useState<string | null>(null);
 
-  // Verificar si el usuario puede editar horarios
   const puedeEditarHorarios = user?.rol === 'ADMINISTRATIVO' || user?.rol === 'ADMINISTRADOR';
   const esTutor = user?.rol === 'TUTOR';
 
   const diasSemana = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
-  // Generar horas desde 06:00 hasta 18:00
   const generarHoras = () => {
     const horas = [];
     for (let i = 6; i <= 18; i++) {
@@ -84,103 +119,46 @@ export default function MiHorario() {
 
   const horasDisponibles = generarHoras();
 
-  // Cargar tutores
+  // Simular carga de datos
   useEffect(() => {
-    const cargarTutores = async () => {
-      try {
-        const response = await fetch(`${API_URL}/personas?rol=TUTOR`);
-        const data = await response.json();
+    setTimeout(() => {
+      // Mock data
+      setMisAulas([
+        { id_aula: 1, nombre_aula: '4-A', grado: '4', id_sede: 1, id_institucion: 1, id_tutor: 1, id_programa: 1, duracion_hora: 60 },
+        { id_aula: 2, nombre_aula: '5-B', grado: '5', id_sede: 1, id_institucion: 1, id_tutor: 2, id_programa: 2, duracion_hora: 90 }
+      ]);
 
-        const tutoresMap = new Map<number, Tutor>();
-        data.forEach((tutor: any) => {
-          tutoresMap.set(tutor.id_persona, {
-            id_persona: tutor.id_persona,
-            nombre: tutor.nombre,
-            apellido: tutor.apellido
-          });
-        });
+      setTutores(new Map([
+        [1, { id_persona: 1, nombre: 'María', apellido: 'García' }],
+        [2, { id_persona: 2, nombre: 'Juan', apellido: 'Pérez' }]
+      ]));
 
-        setTutores(tutoresMap);
-      } catch (err) {
-        console.error('Error al cargar tutores:', err);
-      }
-    };
+      setHorarios([
+        {
+          id_horario: 1,
+          dia: 'Lunes',
+          hora_inicio: '08:00',
+          hora_fin: '09:00',
+          id_aula: 1,
+          nombre_aula: '4-A',
+          grado: '4',
+          nombre_tutor: 'María García'
+        },
+        {
+          id_horario: 2,
+          dia: 'Miércoles',
+          hora_inicio: '10:00',
+          hora_fin: '11:30',
+          id_aula: 2,
+          nombre_aula: '5-B',
+          grado: '5',
+          nombre_tutor: 'Juan Pérez'
+        }
+      ]);
 
-    cargarTutores();
+      setLoading(false);
+    }, 500);
   }, []);
-
-  // Cargar aulas
-  useEffect(() => {
-    const cargarAulas = async () => {
-      if (!user?.id_persona) return;
-
-      try {
-        const response = await fetch(`${API_URL}/aulas/`);
-        const data = await response.json();
-
-        // Si es tutor, filtrar solo sus aulas. Si es admin, mostrar todas
-        let aulasAMostrar;
-        if (esTutor) {
-          aulasAMostrar = data.filter((aula: Aula) => aula.id_tutor === Number(user.id_persona));
-        } else {
-          aulasAMostrar = data; // Administrativos y administradores ven todas las aulas
-        }
-
-        setMisAulas(aulasAMostrar);
-      } catch (err) {
-        console.error('Error al cargar aulas:', err);
-        setError('Error al cargar las aulas');
-      }
-    };
-
-    cargarAulas();
-  }, [user?.id_persona, esTutor]);
-
-  // Cargar horarios con información de tutor
-  useEffect(() => {
-    const cargarHorarios = async () => {
-      if (!user?.id_persona || misAulas.length === 0) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        let response;
-        if (esTutor) {
-          // Tutores solo ven sus horarios
-          response = await fetch(`${API_URL}/horarios?id_tutor=${user.id_persona}`);
-        } else {
-          // Administrativos ven todos los horarios
-          response = await fetch(`${API_URL}/horarios?limit=1000`);
-        }
-
-        const data = await response.json();
-
-        // Enriquecer horarios con información de tutor
-        const horariosEnriquecidos = data.map((horario: any) => {
-          const aula = misAulas.find(a => a.id_aula === horario.id_aula);
-          const tutor = aula ? tutores.get(aula.id_tutor) : null;
-
-          return {
-            ...horario,
-            nombre_aula: aula?.nombre_aula,
-            grado: aula?.grado,
-            tutor: tutor,
-            nombre_tutor: tutor ? `${tutor.nombre} ${tutor.apellido}` : 'Sin tutor'
-          };
-        });
-
-        setHorarios(horariosEnriquecidos);
-      } catch (err) {
-        console.error('Error al cargar horarios:', err);
-        setError('Error al cargar los horarios');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    cargarHorarios();
-  }, [user?.id_persona, esTutor, misAulas, tutores]);
 
   // Calcular estadísticas
   const totalClases = horarios.length;
@@ -191,7 +169,6 @@ export default function MiHorario() {
     return acc + duracion;
   }, 0);
 
-  // Validar máximo de horas por aula
   const validarMaximoHoras = (aulaId: number): { valido: boolean; mensaje: string } => {
     const aula = misAulas.find(a => a.id_aula === aulaId);
     if (!aula) return { valido: false, mensaje: 'Aula no encontrada' };
@@ -209,7 +186,6 @@ export default function MiHorario() {
     return { valido: true, mensaje: '' };
   };
 
-  // Validar días permitidos según grado
   const validarDia = (dia: string, grado: string): boolean => {
     const gradoNum = parseInt(grado);
     if (gradoNum === 4 || gradoNum === 5) {
@@ -219,9 +195,6 @@ export default function MiHorario() {
   };
 
   const abrirModal = (aula: Aula) => {
-    console.log('Abriendo modal para aula:', aula);
-    console.log('Usuario puede editar:', puedeEditarHorarios);
-
     if (!puedeEditarHorarios) {
       setError('No tienes permisos para crear horarios');
       setTimeout(() => setError(null), 5000);
@@ -229,8 +202,6 @@ export default function MiHorario() {
     }
 
     const validacion = validarMaximoHoras(aula.id_aula);
-    console.log('Validación de máximo de horas:', validacion);
-
     if (!validacion.valido) {
       setError(validacion.mensaje);
       setTimeout(() => setError(null), 5000);
@@ -239,7 +210,6 @@ export default function MiHorario() {
 
     setSelectedAula(aula);
     const duracion = aula.duracion_hora || 60;
-    console.log('Duración de hora para esta aula:', duracion);
 
     setFormData({
       dia: 'Lunes',
@@ -272,65 +242,29 @@ export default function MiHorario() {
 
     if (!selectedAula) return;
 
-    // Validar día según grado
     if (!validarDia(formData.dia, selectedAula.grado)) {
       setError('Grados 4° y 5° solo pueden tener clases de Lunes a Viernes');
       return;
     }
 
-    // Calcular hora fin
     const horaFin = calcularHoraFin(formData.hora_inicio, formData.duracion_minutos);
+    const tutor = tutores.get(selectedAula.id_tutor);
 
-    const payload = {
+    // Simular creación
+    const nuevoHorario: Horario = {
+      id_horario: horarios.length + 1,
       dia: formData.dia,
       hora_inicio: formData.hora_inicio,
       hora_fin: horaFin,
-      duracion_minutos: formData.duracion_minutos,
-      id_aula: selectedAula.id_aula
+      id_aula: selectedAula.id_aula,
+      nombre_aula: selectedAula.nombre_aula,
+      grado: selectedAula.grado,
+      tutor: tutor,
+      nombre_tutor: tutor ? `${tutor.nombre} ${tutor.apellido}` : 'Sin tutor'
     };
 
-    console.log('Enviando payload:', payload);
-
-    try {
-      const response = await fetch(`${API_URL}/horarios/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
-      });
-
-      console.log('Response status:', response.status);
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Error del servidor:', errorData);
-        throw new Error(errorData.detail || 'Error al crear horario');
-      }
-
-      const nuevoHorario = await response.json();
-      console.log('Horario creado:', nuevoHorario);
-
-      const tutor = tutores.get(selectedAula.id_tutor);
-
-      // Actualizar lista de horarios
-      setHorarios([...horarios, {
-        id_horario: nuevoHorario.id_horario,
-        dia: nuevoHorario.dia,
-        hora_inicio: nuevoHorario.hora_inicio,
-        hora_fin: nuevoHorario.hora_fin,
-        id_aula: nuevoHorario.id_aula,
-        nombre_aula: selectedAula.nombre_aula,
-        grado: selectedAula.grado,
-        tutor: tutor,
-        nombre_tutor: tutor ? `${tutor.nombre} ${tutor.apellido}` : 'Sin tutor'
-      }]);
-
-      cerrarModal();
-    } catch (err: any) {
-      console.error('Error completo:', err);
-      setError(err.message || 'Error al crear el horario');
-    }
+    setHorarios([...horarios, nuevoHorario]);
+    cerrarModal();
   };
 
   const eliminarHorario = async (idHorario: number) => {
@@ -341,46 +275,13 @@ export default function MiHorario() {
     }
 
     if (!confirm('¿Está seguro de eliminar este horario?')) return;
-
-    try {
-      const response = await fetch(`${API_URL}/horarios/${idHorario}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) {
-        throw new Error('Error al eliminar horario');
-      }
-
-      setHorarios(horarios.filter(h => h.id_horario !== idHorario));
-    } catch (err) {
-      console.error('Error al eliminar horario:', err);
-      setError('Error al eliminar el horario');
-      setTimeout(() => setError(null), 5000);
-    }
+    setHorarios(horarios.filter(h => h.id_horario !== idHorario));
   };
 
-  // Configuración del calendario con información de tutor
+  // Configuración del calendario con eventos recurrentes
   const calendar = useCalendarApp({
-    views: [createViewWeek()],
-    events: horarios.map(h => {
-      const diaIndex = diasSemana.indexOf(h.dia);
-      // Asegurarnos de que el índice del día sea válido
-      const diaCalendario = diaIndex >= 0 ? diaIndex + 1 : 1;
-
-      console.log('Creando evento:', {
-        horario: h,
-        dia: h.dia,
-        diaIndex,
-        nombre_tutor: h.nombre_tutor
-      });
-
-      return {
-        id: h.id_horario.toString(),
-        title: `${h.nombre_aula || 'Aula'} - ${h.grado}°\n${h.nombre_tutor || 'Sin tutor'}`,
-        start: `2024-01-0${diaCalendario}T${h.hora_inicio}`,
-        end: `2024-01-0${diaCalendario}T${h.hora_fin}`,
-      };
-    }),
+    views: [createViewWeek(), createViewMonthGrid()],
+    events: generarEventosRecurrentes(horarios, 52) as any, // 52 semanas (1 año) — cast para compatibilidad de tipos
     weekOptions: {
       gridHeight: 1200,
     },
@@ -395,7 +296,7 @@ export default function MiHorario() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <div>
         <h1 className="text-3xl mb-2">
           {esTutor ? 'Mi Horario' : 'Gestión de Horarios'}
@@ -405,11 +306,9 @@ export default function MiHorario() {
             ? 'Calendario semanal de clases asignadas'
             : 'Administración de horarios del sistema'}
         </p>
-        {puedeEditarHorarios && (
-          <p className="text-sm text-blue-600 mt-1">
-            ✓ Tienes permisos para crear y eliminar horarios
-          </p>
-        )}
+        <p className="text-sm text-blue-600 mt-2">
+          ℹ️ Los horarios se repiten automáticamente cada semana durante todo el año
+        </p>
       </div>
 
       {error && (
@@ -474,7 +373,7 @@ export default function MiHorario() {
                       <div>
                         <p className="font-semibold">{aula.nombre_aula}</p>
                         <p className="text-sm text-muted-foreground">
-                          Grado {aula.grado}° • {aula.id_programa ? aula.id_programa === 1 ? 'INSIDECLASSROOM' : 'OUTSIDECLASSROOM' : 'Sin programa'} •
+                          Grado {aula.grado}° • {aula.id_programa === 1 ? 'INSIDECLASSROOM' : 'OUTSIDECLASSROOM'} •
                           {horariosAula.length}/{maxHoras} horas asignadas
                         </p>
                         {tutor && (
@@ -543,10 +442,10 @@ export default function MiHorario() {
       {/* Calendar View */}
       <Card>
         <CardHeader>
-          <CardTitle>Calendario Semanal</CardTitle>
+          <CardTitle>Calendario (Vista Semanal y Mensual)</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="scale-90 origin-top-left">
+          <div className="w-full overflow-x-auto">
             <ScheduleXCalendar calendarApp={calendar} />
           </div>
         </CardContent>
@@ -623,10 +522,10 @@ export default function MiHorario() {
               )}
 
               <div className="flex gap-2 justify-end">
-                <Button type="button" variant="outline" onClick={cerrarModal}>
+                <Button variant="outline" onClick={cerrarModal}>
                   Cancelar
                 </Button>
-                <Button type="button" onClick={handleSubmit}>
+                <Button onClick={handleSubmit}>
                   Crear Horario
                 </Button>
               </div>
